@@ -1,0 +1,137 @@
+# =============================================================================
+# Editors / IDEs
+# =============================================================================
+.buildpath
+.project
+.settings/
+.idea/
+.vscode/
+.hgignore.swp
+.swp
+*.swp
+.orig
+*.orig
+.contributing
+
+# =============================================================================
+# OS
+# =============================================================================
+**/.DS_Store
+
+# =============================================================================
+# Temp / scratch
+# =============================================================================
+.tmp/
+temp/
+assets/
+!.github/assets/
+.tmp-site/
+
+# =============================================================================
+# Agent / AI tooling local config
+# =============================================================================
+/localdocs/
+.obsidian/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.scripts/ai-trans/config.yaml
+.scripts/gen-seo/config.yaml
+.codex/config.toml
+.github/codex/*
+!.github/codex/
+!.github/codex/config.template.toml
+!.github/codex/auth.template.json
+.github/codex/auth.json
+
+# Vendored skill sources (managed externally)
+.agents/skills/goframe-v2/
+
+# =============================================================================
+# Frontend
+# =============================================================================
+**/node_modules/
+**/dist/
+**/dist.zip
+**/.turbo/
+**/.docusaurus/
+**/docs/changelog.md
+
+# =============================================================================
+# Testing
+# =============================================================================
+.playwright-cli/
+.playwright-mcp/
+playwright-report/
+test-results/
+*.tar.zst
+
+# =============================================================================
+# Build artifacts
+# =============================================================================
+*.exe
+*.test
+*.out
+
+
+# =============================================================================
+# Agent private project directories
+# Managed locally by `make agents.skills.link` / `make agents.prompts.link`.
+# Sources live under .agents/skills and .agents/prompts; per-tool symlinks
+# created at the repo root must not be committed. Already-tracked symlinks
+# (e.g. .claude/skills, .claude/commands) keep working because .gitignore
+# does not affect files already in the index.
+# =============================================================================
+/.adal/
+/.aider-desk/
+/.augment/
+/.bob/
+/.claude/
+/.codeartsdoer/
+/.codebuddy/
+/.codemaker/
+/.codestudio/
+/.codex/
+/.commandcode/
+/.continue/
+/.cortex/
+/.crush/
+/.cursor/
+/.devin/
+/.factory/
+/.forge/
+/.gemini/
+/.goose/
+/.hermes/
+/.iflow/
+/.junie/
+/.kilocode/
+/.kiro/
+/.kode/
+/.mcpjam/
+/.mux/
+/.neovate/
+/.openhands/
+/.pi/
+/.pochi/
+/.qoder/
+/.qwen/
+/.roo/
+/.rovodev/
+/.tabnine/
+/.trae/
+/.vibe/
+/.windsurf/
+/.zencoder/
+
+# rootCollision agent (openclaw) — only created with explicit AGENT=openclaw FORCE=1.
+# Ignored to keep an opt-in symlink from polluting the repo root if a user enables it.
+/skills
+
+# AGENTS.md is the only truth, link to it if necessary.
+/CLAUDE.md
+/GEMINI.md
