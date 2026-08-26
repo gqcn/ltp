@@ -13,7 +13,10 @@ gfcli:
   gen:
     dao:
       - link: *localDatabaseLink
-        tables: "sys_user,sys_user_session,ops_datacenter"
+        tables: >-
+          sys_user,
+          sys_user_session,
+          ops_datacenter
         descriptionTag: true
         noModelComment: true
   docker:

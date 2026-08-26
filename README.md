@@ -15,10 +15,11 @@
 
 本地开发使用本机`PostgreSQL`，地址`127.0.0.1:5432`，数据库名`ltp`。
 
-1. 确认本机`PostgreSQL`已启动，然后执行：`make db.up`
-2. 初始化表结构与种子数据：`make db.init`
-3. 可选加载原型数据中心：`make db.mock`
-4. 启动前后端：`make dev`
+1. 复制`apps/backend/manifest/config/config.template.yaml`为`config.yaml`，填入本地数据库账号，不要把真实口令提交到仓库
+2. 确认本机`PostgreSQL`已启动，然后执行：`make db.up`
+3. 初始化表结构与种子数据：`make db.init`
+4. 可选加载原型数据中心：`make db.mock`
+5. 启动前后端：`make dev`
 
 打开`http://127.0.0.1:5173`，使用`admin` / `admin123`登录。
 

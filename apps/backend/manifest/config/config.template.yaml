@@ -1,0 +1,55 @@
+# 运行配置模板。复制为同目录 config.yaml 后填写本地值。
+# 禁止在本模板中写入真实口令、密钥或其他敏感信息。
+
+# HTTP 服务
+server:
+  # 监听地址，例如 ":8000" 表示本机全部网卡的 8000 端口。
+  address: ":8000"
+  # 启动时是否在终端打印路由表，便于核对接口是否注册成功。
+  dumpRouterMap: true
+  # 是否允许后注册的同名路由覆盖先注册的路由。
+  routeOverWrite: true
+  # 是否记录 HTTP 访问日志。
+  accessLogEnabled: true
+  # OpenAPI JSON 文档路径，浏览器可通过该路径拉取接口定义。
+  openapiPath: "/api.json"
+  # Swagger UI 路径，便于本地调试接口。
+  swaggerPath: "/swagger"
+  # 单次请求体大小上限，超过后拒绝上传或大包请求。
+  clientMaxBodySize: "20MB"
+
+# 应用日志
+logger:
+  # 日志级别，常用 all / debug / info / warn / error / none。
+  level: "all"
+  # 是否同时输出到标准输出。
+  stdout: true
+
+# 数据库
+database:
+  # 数据库组件自身的日志。
+  logger:
+    # SQL 相关日志级别。
+    level: "all"
+    # 是否把 SQL 日志打到标准输出。
+    stdout: true
+  default:
+    # GoFrame PostgreSQL 连接串：pgsql:用户名:密码@tcp(主机:端口)/数据库名?sslmode=disable
+    # 将 USER、PASSWORD 替换为本地 PostgreSQL 账号，不要提交真实口令。
+    # 本地默认库名为 ltp，端口为 5432。
+    link: "pgsql:USER:PASSWORD@tcp(127.0.0.1:5432)/ltp?sslmode=disable"
+    # 是否打印实际执行的 SQL，排查查询问题时再打开。
+    debug: true
+    # 创建时间字段名，由 GoFrame 在插入时自动维护。
+    createdAt: "created_at"
+    # 更新时间字段名，由 GoFrame 在写入时自动维护。
+    updatedAt: "updated_at"
+    # 软删除时间字段名，由 GoFrame 在 Delete 时自动维护，查询默认过滤已删除行。
+    deletedAt: "deleted_at"
+
+# 认证会话
+auth:
+  # 服务端会话有效期，使用带单位的时长，例如 24h、30m。
+  sessionTTL: "24h"
+  # 浏览器会话 Cookie 名称，须与前端携带的 Cookie 一致。
+  cookieName: "ltp_session"
