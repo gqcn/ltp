@@ -1,0 +1,11 @@
+schema: spec-driven
+
+context: |
+  LTP is an LLM training management platform.
+  Backend lives in apps/backend and follows GoFrame v2 layout.
+  Frontend lives in apps/frontend and uses React, TypeScript, Vite, and Tailwind CSS.
+  Shared Make targets, Compose, and Playwright E2E live under hack/.
+  Default database dialect is PostgreSQL. Local development uses host PostgreSQL at 127.0.0.1:5432, database ltp.
+  OpenSpec artifact language follows the user's request language.
+  When creating a new active change, generate proposal.md, design.md, tasks.md,
+  and delta specs in Simplified Chinese if the user writes in Chinese.

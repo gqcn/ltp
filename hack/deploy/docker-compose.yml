@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ltp
+    ports:
+      - "5433:5432"
+    volumes:
+      - ltp-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ltp"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  ltp-postgres:

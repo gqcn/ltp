@@ -1,0 +1,28 @@
+@import "@fontsource-variable/inter";
+@import "@fontsource/jetbrains-mono";
+@layer theme, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "./styles/prototype.css";
+
+#root {
+  height: 100%;
+  min-height: 100%;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.sidebar-nav a.nav-item {
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.sidebar-nav a.nav-item:hover {
+  color: var(--text-0);
+}
+
+.sidebar-nav a.nav-item.active {
+  color: var(--accent-text);
+}

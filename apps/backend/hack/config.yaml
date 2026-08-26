@@ -1,0 +1,22 @@
+# 仅用于本地构建和代码生成的配置。
+# 运行期二进制不得读取本文件。
+
+shared:
+  localDatabaseLink: &localDatabaseLink "pgsql:postgres:postgres@tcp(127.0.0.1:5432)/ltp?sslmode=disable"
+
+database:
+  default:
+    link: *localDatabaseLink
+    debug: true
+
+gfcli:
+  gen:
+    dao:
+      - link: *localDatabaseLink
+        tables: "sys_user,sys_user_session,ops_datacenter"
+        descriptionTag: true
+        noModelComment: true
+  docker:
+    build: "-a amd64 -s linux -p temp -ew"
+    tagPrefixes:
+      - ltp

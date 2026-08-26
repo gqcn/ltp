@@ -1,0 +1,27 @@
+server:
+  address: ":8000"
+  dumpRouterMap: true
+  routeOverWrite: true
+  accessLogEnabled: true
+  openapiPath: "/api.json"
+  swaggerPath: "/swagger"
+  clientMaxBodySize: "20MB"
+
+logger:
+  level: "all"
+  stdout: true
+
+database:
+  logger:
+    level: "all"
+    stdout: true
+  default:
+    link: "pgsql:postgres:postgres@tcp(127.0.0.1:5432)/ltp?sslmode=disable"
+    debug: true
+    createdAt: "created_at"
+    updatedAt: "updated_at"
+    deletedAt: "deleted_at"
+
+auth:
+  sessionTTL: "24h"
+  cookieName: "ltp_session"

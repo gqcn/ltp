@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MAIP-大模型训练平台</title>
+    <script>
+      (function () {
+        try {
+          var key = "ltp_theme";
+          var saved = localStorage.getItem(key);
+          var theme = saved === "light" || saved === "dark" ? saved : "dark";
+          document.documentElement.setAttribute("data-theme", theme);
+          if (localStorage.getItem("ltp_sidebar") === "collapsed") {
+            document.documentElement.setAttribute("data-sidebar", "collapsed");
+          }
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
