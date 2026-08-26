@@ -28,10 +28,9 @@ func (c *ControllerV1) List(ctx context.Context, req *v1.ListReq) (res *v1.ListR
 		List:  items,
 		Total: out.Total,
 		Summary: v1.ListSummary{
-			Total:            out.Summary.Total,
-			Enabled:          out.Summary.Enabled,
-			Disabled:         out.Summary.Disabled,
-			DefaultShortName: out.Summary.DefaultShortName,
+			Total:    out.Summary.Total,
+			Enabled:  out.Summary.Enabled,
+			Disabled: out.Summary.Disabled,
 		},
 	}, nil
 }

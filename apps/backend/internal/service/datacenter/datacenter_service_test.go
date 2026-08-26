@@ -79,12 +79,14 @@ func TestDatacenterCRUD(t *testing.T) {
 		t.Fatalf("expected 1 disabled row, got %d", out.Total)
 	}
 
-	list, err := svc.List(ctx, ListInput{PageNum: 1, PageSize: 10})
+	list, err := svc.List(ctx, ListInput{PageNum: 1, PageSize: 50, Keyword: "默认数据中心"})
 	if err != nil {
-		t.Fatalf("list: %v", err)
+		t.Fatalf("list builtin default: %v", err)
 	}
-	if list.Total < 2 {
-		t.Fatalf("expected default plus created row, total=%d", list.Total)
+	for _, row := range list.List {
+		if row.Name == "默认数据中心" || (row.Code == "default" && row.IsDefault) {
+			t.Fatalf("builtin default datacenter must be gone, got %+v", row)
+		}
 	}
 
 	if err := svc.Delete(ctx, id); err != nil {
@@ -92,30 +94,6 @@ func TestDatacenterCRUD(t *testing.T) {
 	}
 	if _, err := svc.Get(ctx, id); !bizerr.Is(err, CodeNotFound) {
 		t.Fatalf("expected not found after delete, got %v", err)
-	}
-
-	defaults, err := svc.List(ctx, ListInput{PageNum: 1, PageSize: 50, Keyword: consts.DefaultDatacenterCode})
-	if err != nil {
-		t.Fatalf("list default: %v", err)
-	}
-	var defaultID int64
-	for _, row := range defaults.List {
-		if row.Code == consts.DefaultDatacenterCode {
-			defaultID = row.ID
-			if err := svc.UpdateStatus(ctx, row.ID, false); !bizerr.Is(err, CodeDefaultProtected) {
-				t.Fatalf("expected default protect on disable, got %v", err)
-			}
-			if err := svc.Delete(ctx, row.ID); !bizerr.Is(err, CodeDefaultProtected) {
-				t.Fatalf("expected default protect on delete, got %v", err)
-			}
-		}
-	}
-	if defaultID == 0 {
-		t.Fatal("default datacenter missing")
-	}
-
-	if _, err := svc.Create(ctx, CreateInput{Code: "default", Name: "x", ShortName: "x"}); err == nil {
-		t.Fatal("expected reserved code rejection")
 	}
 }
 

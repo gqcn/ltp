@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { logout, type SessionUser } from "@/api/auth";
+import { canVisit, MENU_OPS, MENU_PLATFORM } from "@/lib/access";
 import { applySidebarCollapsed, readSidebarCollapsed, toggleTheme, readTheme } from "@/lib/theme";
 import { adminShellMeta } from "@/lib/format";
 import { toast } from "@/lib/toast";
@@ -10,8 +11,18 @@ type Props = {
   user: SessionUser;
 };
 
+const breadcrumbs: Record<string, string> = {
+  "/home": "工作台",
+  "/ops/datacenters": "数据中心",
+  "/platform/users": "用户管理",
+  "/platform/teams": "团队管理",
+  "/platform/roles": "角色管理",
+  "/platform/system": "系统配置",
+};
+
 export function AppShell({ user }: Props) {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -34,9 +45,13 @@ export function AppShell({ user }: Props) {
   }
 
   const shellUser = adminShellMeta(user);
+  const showOps = canVisit(user, MENU_OPS);
+  const showPlatform = canVisit(user, MENU_PLATFORM);
+  const current = breadcrumbs[location.pathname] || "控制台";
+  const fillViewport = location.pathname === "/platform/system";
 
   return (
-    <div className="app">
+    <div className={fillViewport ? "app is-viewport-page" : "app"}>
       <aside className="sidebar">
         <div className="sidebar-brand">
           <div className="logo">AI</div>
@@ -46,18 +61,53 @@ export function AppShell({ user }: Props) {
           </div>
         </div>
         <nav className="sidebar-nav">
-          <div className="nav-section" data-nav-section="ops">
-            <div className="nav-section-title">运维中心</div>
-            <NavLink to="/ops/datacenters" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
-              <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 21h18" />
-                <path d="M5 21V7l7-4 7 4v14" />
-                <path d="M9 21v-6h6v6" />
-                <path d="M9 10h.01M15 10h.01" />
-              </svg>
-              <span className="nav-item-label">数据中心</span>
-            </NavLink>
-          </div>
+          {showOps ? (
+            <div className="nav-section" data-nav-section="ops">
+              <div className="nav-section-title">运维中心</div>
+              <NavLink to="/ops/datacenters" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 21h18" />
+                  <path d="M5 21V7l7-4 7 4v14" />
+                  <path d="M9 21v-6h6v6" />
+                  <path d="M9 10h.01M15 10h.01" />
+                </svg>
+                <span className="nav-item-label">数据中心</span>
+              </NavLink>
+            </div>
+          ) : null}
+          {showPlatform ? (
+            <div className="nav-section" data-nav-section="platform">
+              <div className="nav-section-title">平台中心</div>
+              <NavLink to="/platform/users" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                <span className="nav-item-label">用户管理</span>
+              </NavLink>
+              <NavLink to="/platform/teams" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
+                <span className="nav-item-label">团队管理</span>
+              </NavLink>
+              <NavLink to="/platform/roles" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <path d="M9 12l2 2 4-4" />
+                </svg>
+                <span className="nav-item-label">角色管理</span>
+              </NavLink>
+              <NavLink to="/platform/system" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+                  <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+                </svg>
+                <span className="nav-item-label">系统配置</span>
+              </NavLink>
+            </div>
+          ) : null}
         </nav>
         <div className="sidebar-footer">
           <button
@@ -142,7 +192,7 @@ export function AppShell({ user }: Props) {
               </svg>
             </button>
             <div className="breadcrumb">
-              <span className="current">数据中心</span>
+              <span className="current">{current}</span>
               <span className="sep">·</span>
               <span className="text-muted" style={{ fontSize: 12 }}>
                 全局视图

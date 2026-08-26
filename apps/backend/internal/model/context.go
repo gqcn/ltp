@@ -7,4 +7,8 @@ type Context struct {
 	UserID   int64
 	Username string
 	Nickname string
+	IsAdmin  bool
+	Source   string
+	RoleCode string
+	Menus    []string
 }

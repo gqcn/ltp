@@ -15,7 +15,7 @@ import (
 	"github.com/gqcn/ltp/pkg/logger"
 )
 
-// Create 插入一条启用的非默认数据中心并返回 ID。
+// Create 插入一条启用的数据中心并返回 ID。
 func (s *serviceImpl) Create(ctx context.Context, in CreateInput) (int64, error) {
 	code := normalizeCode(in.Code)
 	name := normalizeName(in.Name)
@@ -51,7 +51,7 @@ func (s *serviceImpl) Create(ctx context.Context, in CreateInput) (int64, error)
 	return id, nil
 }
 
-// Update 修改展示元数据。标识与默认标记不可改。
+// Update 修改展示元数据。标识不可改。
 func (s *serviceImpl) Update(ctx context.Context, in UpdateInput) error {
 	row, err := s.mustGet(ctx, in.ID)
 	if err != nil {
@@ -75,14 +75,10 @@ func (s *serviceImpl) Update(ctx context.Context, in UpdateInput) error {
 	return nil
 }
 
-// UpdateStatus 启用或停用非默认数据中心。
+// UpdateStatus 启用或停用数据中心。
 func (s *serviceImpl) UpdateStatus(ctx context.Context, id int64, enabled bool) error {
-	row, err := s.mustGet(ctx, id)
-	if err != nil {
+	if _, err := s.mustGet(ctx, id); err != nil {
 		return err
-	}
-	if row.IsDefault && !enabled {
-		return bizerr.New(CodeDefaultProtected, bizerr.P("message", "默认数据中心始终启用，不可停用"))
 	}
 	if _, err := dao.OpsDatacenter.Ctx(ctx).Where(do.OpsDatacenter{Id: id}).Data(do.OpsDatacenter{
 		Enabled: enabled,
@@ -92,14 +88,11 @@ func (s *serviceImpl) UpdateStatus(ctx context.Context, id int64, enabled bool) 
 	return nil
 }
 
-// Delete 软删除非默认数据中心。
+// Delete 软删除数据中心。
 func (s *serviceImpl) Delete(ctx context.Context, id int64) error {
 	row, err := s.mustGet(ctx, id)
 	if err != nil {
 		return err
-	}
-	if row.IsDefault {
-		return bizerr.New(CodeDefaultProtected, bizerr.P("message", "默认数据中心不可删除"))
 	}
 	if _, err := dao.OpsDatacenter.Ctx(ctx).Where(do.OpsDatacenter{Id: id}).Delete(); err != nil {
 		return gerror.Wrap(err, "delete datacenter")

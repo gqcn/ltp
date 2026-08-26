@@ -7,9 +7,11 @@ type Props = {
   title: string;
   children: ReactNode;
   confirmText?: string;
+  cancelText?: string;
   confirmVariant?: "primary" | "danger";
   maxWidth?: number;
   modalClassName?: string;
+  footerLeft?: ReactNode;
   onClose: () => void;
   onConfirm?: () => void;
   confirmDisabled?: boolean;
@@ -20,9 +22,11 @@ export function Modal({
   title,
   children,
   confirmText,
+  cancelText = "取消",
   confirmVariant = "primary",
   maxWidth,
   modalClassName,
+  footerLeft,
   onClose,
   onConfirm,
   confirmDisabled,
@@ -44,13 +48,16 @@ export function Modal({
         </div>
         <div className="modal-body">{children}</div>
         {onConfirm ? (
-          <div className="modal-footer">
-            <Button variant="secondary" onClick={onClose}>
-              取消
-            </Button>
-            <Button variant={confirmVariant} onClick={onConfirm} disabled={confirmDisabled}>
-              {confirmText ?? "确认"}
-            </Button>
+          <div className="modal-footer" style={footerLeft ? { justifyContent: "space-between", flexWrap: "wrap", gap: 8 } : undefined}>
+            {footerLeft}
+            <div className="flex gap-8">
+              <Button variant="secondary" onClick={onClose}>
+                {cancelText}
+              </Button>
+              <Button variant={confirmVariant} onClick={onConfirm} disabled={confirmDisabled}>
+                {confirmText ?? "确认"}
+              </Button>
+            </div>
           </div>
         ) : null}
       </div>

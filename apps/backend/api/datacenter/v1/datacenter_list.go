@@ -32,7 +32,7 @@ type ListItem struct {
 	Color       string    `json:"color" dc:"角标颜色，格式 #RRGGBB" eg:"#3b82f6"`
 	Description string    `json:"description" dc:"说明" eg:"两江数据中心"`
 	Enabled     bool      `json:"enabled" dc:"数据中心是否启用" eg:"true"`
-	IsDefault   bool      `json:"isDefault" dc:"是否为内置默认数据中心" eg:"false"`
+	IsDefault   bool      `json:"isDefault" dc:"历史字段，恒为 false。系统不再内置默认数据中心。" eg:"false"`
 	Usage       UsageItem `json:"usage" dc:"批量装配的关联计数"`
 	CreatedAt   int64     `json:"createdAt" dc:"创建时间，Unix 毫秒时间戳" eg:"1754000000000"`
 	UpdatedAt   int64     `json:"updatedAt" dc:"更新时间，Unix 毫秒时间戳" eg:"1754000000000"`
@@ -40,10 +40,9 @@ type ListItem struct {
 
 // ListSummary 是页面 KPI 使用的未筛选库存快照。
 type ListSummary struct {
-	Total            int    `json:"total" dc:"未筛选的数据中心总数" eg:"4"`
-	Enabled          int    `json:"enabled" dc:"未筛选的启用数量" eg:"4"`
-	Disabled         int    `json:"disabled" dc:"未筛选的停用数量" eg:"0"`
-	DefaultShortName string `json:"defaultShortName" dc:"内置默认数据中心的简称" eg:"默认"`
+	Total    int `json:"total" dc:"未筛选的数据中心总数" eg:"4"`
+	Enabled  int `json:"enabled" dc:"未筛选的启用数量" eg:"4"`
+	Disabled int `json:"disabled" dc:"未筛选的停用数量" eg:"0"`
 }
 
 // ListRes 是分页数据中心列表。

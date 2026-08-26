@@ -27,7 +27,6 @@ export type DatacenterSummary = {
   total: number;
   enabled: number;
   disabled: number;
-  defaultShortName: string;
 };
 
 export type DatacenterList = {

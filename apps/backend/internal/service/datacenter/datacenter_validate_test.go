@@ -13,7 +13,7 @@ func TestValidateCode(t *testing.T) {
 	}{
 		{name: "valid", code: "cq-lj", wantErr: false},
 		{name: "single letter", code: "a", wantErr: false},
-		{name: "reserved default", code: "default", wantErr: true},
+		{name: "default is ordinary code", code: "default", wantErr: false},
 		{name: "uppercase", code: "CQ-LJ", wantErr: true},
 		{name: "leading hyphen", code: "-lj", wantErr: true},
 		{name: "trailing hyphen", code: "lj-", wantErr: true},

@@ -5,9 +5,91 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "./styles/prototype.css";
 
-#root {
-  height: 100%;
+/*
+ * 原型把 .app 直接铺在 body 上。React 多了 #root，若把高度锁成 100%
+ * 视口，长表格的横向滚动条会被推到视口外，右侧 sticky 操作列会裁切
+ * 「最近登录」等列，看起来像最右侧一条空白。
+ */
+html,
+body {
+  width: 100%;
   min-height: 100%;
+  height: auto;
+  overflow-x: hidden;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.app {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+}
+
+.app > .main {
+  width: calc(100% - var(--sidebar-w));
+  max-width: calc(100% - var(--sidebar-w));
+}
+
+/*
+ * 系统配置表单在 1440×900 下只比视口高出约 20px（.content 底边距）。
+ * 原型 html/body 为 height:100%、overflow:visible，多出的像素画在视口外，不出现窗口滚动条。
+ * 本应用 overflow-x:hidden 会把 overflow-y 算成 auto，同样的 20px 会在右侧画出滚动条。
+ * 此页对齐原型：锁在视口内；底边距去掉以免裁切保存按钮；矮视口只在内容区滚动。
+ */
+html:has(.app.is-viewport-page),
+body:has(.app.is-viewport-page),
+#root:has(.app.is-viewport-page) {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.app.is-viewport-page {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app.is-viewport-page .main {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app.is-viewport-page .content {
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 0;
+}
+
+#page-user-mgmt .table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+#page-user-mgmt .table th.th-check,
+#page-user-mgmt .table td.td-check {
+  width: 40px;
+}
+
+#page-user-mgmt .table th:not(.th-actions):not(.th-check),
+#page-user-mgmt .table td:not(.td-actions):not(.td-check) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#page-user-mgmt .table td .tag {
+  max-width: 100%;
 }
 
 .mono {

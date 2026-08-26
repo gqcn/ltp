@@ -21,15 +21,15 @@ type SysUserSessionDao struct {
 
 // SysUserSessionColumns defines and stores column names for the table sys_user_session.
 type SysUserSessionColumns struct {
-	Id        string // Session ID
-	UserId    string // User ID
-	TokenHash string // SHA-256 hex of the opaque session token
-	UserAgent string // User agent at login
-	IpAddress string // Client IP at login
-	ExpiresAt string // Session expiration time
-	RevokedAt string // Revocation time
-	CreatedAt string // Creation time
-	UpdatedAt string // Update time
+	Id        string // 会话 ID
+	UserId    string // 用户 ID
+	TokenHash string // 不透明会话令牌的 SHA-256 十六进制值
+	UserAgent string // 登录时的 User-Agent
+	IpAddress string // 登录时的客户端 IP
+	ExpiresAt string // 会话过期时间
+	RevokedAt string // 撤销时间
+	CreatedAt string // 创建时间
+	UpdatedAt string // 更新时间
 }
 
 // sysUserSessionColumns holds the columns for the table sys_user_session.

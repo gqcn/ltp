@@ -16,6 +16,10 @@ gfcli:
         tables: >-
           sys_user,
           sys_user_session,
+          sys_role,
+          sys_team,
+          sys_team_member,
+          sys_ldap_config,
           ops_datacenter
         descriptionTag: true
         noModelComment: true

@@ -15,5 +15,24 @@ services:
       timeout: 3s
       retries: 20
 
+  ldap:
+    image: osixia/openldap:1.5.0
+    command: --copy-service
+    environment:
+      LDAP_ORGANISATION: MSXF
+      LDAP_DOMAIN: msxf.com
+      LDAP_ADMIN_PASSWORD: admin
+      LDAP_CONFIG_PASSWORD: config
+      LDAP_TLS: "false"
+    ports:
+      - "1389:389"
+    volumes:
+      - ./ldap/01-users.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/50-users.ldif:ro
+    healthcheck:
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://127.0.0.1:389", "-D", "cn=admin,dc=msxf,dc=com", "-w", "admin", "-b", "dc=msxf,dc=com", "-s", "base"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
 volumes:
   ltp-postgres:

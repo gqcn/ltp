@@ -15,10 +15,18 @@ import (
 	"github.com/gqcn/ltp/internal/controller/auth"
 	"github.com/gqcn/ltp/internal/controller/datacenter"
 	"github.com/gqcn/ltp/internal/controller/health"
+	"github.com/gqcn/ltp/internal/controller/role"
+	"github.com/gqcn/ltp/internal/controller/system"
+	"github.com/gqcn/ltp/internal/controller/team"
+	"github.com/gqcn/ltp/internal/controller/user"
 	authsvc "github.com/gqcn/ltp/internal/service/auth"
 	"github.com/gqcn/ltp/internal/service/bizctx"
 	dcsvc "github.com/gqcn/ltp/internal/service/datacenter"
+	ldapsvc "github.com/gqcn/ltp/internal/service/ldap"
 	"github.com/gqcn/ltp/internal/service/middleware"
+	rolesvc "github.com/gqcn/ltp/internal/service/role"
+	teamsvc "github.com/gqcn/ltp/internal/service/team"
+	usersvc "github.com/gqcn/ltp/internal/service/user"
 	"github.com/gqcn/ltp/pkg/logger"
 )
 
@@ -34,8 +42,22 @@ func httpFunc(ctx context.Context, _ *gcmd.Parser) error {
 
 	var (
 		bizCtxSvc = bizctx.New()
+		roleSvc   = rolesvc.New()
+		ldapDir   = ldapsvc.NewGoLDAPDirectory()
 	)
-	authSvc, err := authsvc.New(authsvc.Config{SessionTTL: sessionTTL})
+	ldapSvc, err := ldapsvc.New(ldapDir)
+	if err != nil {
+		return err
+	}
+	authSvc, err := authsvc.New(authsvc.Config{SessionTTL: sessionTTL}, ldapSvc, roleSvc)
+	if err != nil {
+		return err
+	}
+	userSvc, err := usersvc.New(ldapSvc, roleSvc)
+	if err != nil {
+		return err
+	}
+	teamSvc, err := teamsvc.New(userSvc)
 	if err != nil {
 		return err
 	}
@@ -52,14 +74,18 @@ func httpFunc(ctx context.Context, _ *gcmd.Parser) error {
 		authCtrl   = auth.NewV1(authSvc, cookieName)
 		dcCtrl     = datacenter.NewV1(dcSvc)
 		healthCtrl = health.NewV1()
+		userCtrl   = user.NewV1(userSvc, bizCtxSvc)
+		roleCtrl   = role.NewV1(roleSvc, bizCtxSvc)
+		teamCtrl   = team.NewV1(teamSvc)
+		systemCtrl = system.NewV1(ldapSvc, userSvc, bizCtxSvc)
 		s          = g.Server()
 	)
 	s.Group("/api", func(group *ghttp.RouterGroup) {
 		group.Middleware(mwSvc.CORS, mwSvc.Response, mwSvc.Ctx)
 		group.Bind(healthCtrl, authCtrl)
 		group.Group("/", func(protected *ghttp.RouterGroup) {
-			protected.Middleware(mwSvc.Auth)
-			protected.Bind(dcCtrl)
+			protected.Middleware(mwSvc.Auth, mwSvc.Permission)
+			protected.Bind(dcCtrl, userCtrl, roleCtrl, teamCtrl, systemCtrl)
 		})
 	})
 	enhanceOpenAPIDoc(s)

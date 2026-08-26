@@ -12,6 +12,7 @@ import {
 } from "@/api/datacenter";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
+import { ColorField } from "@/components/ColorField";
 import { Modal } from "@/components/Modal";
 import { Pagination } from "@/components/Pagination";
 
@@ -69,7 +70,7 @@ export function DatacenterPage() {
 
   const rows = listQuery.data?.list ?? [];
   const total = listQuery.data?.total ?? 0;
-  const kpis = listQuery.data?.summary ?? { total: 0, enabled: 0, disabled: 0, defaultShortName: "默认" };
+  const kpis = listQuery.data?.summary ?? { total: 0, enabled: 0, disabled: 0 };
 
   function invalidate() {
     return queryClient.invalidateQueries({ queryKey: ["datacenters"] });
@@ -180,7 +181,7 @@ export function DatacenterPage() {
         <div>
           <h1>数据中心管理</h1>
           <p className="desc">
-            维护数据中心标识与元数据 · 内置默认数据中心始终可用 · 供节点 label、队列额度、集群覆盖等业务关联 · 节点 label 约定{" "}
+            维护数据中心标识与元数据 · 供节点 label、队列额度、集群覆盖等业务关联 · 节点未配置时保持未分配 · 节点 label 约定{" "}
             <span className="mono">maip.io/datacenter</span>
           </p>
         </div>
@@ -189,7 +190,7 @@ export function DatacenterPage() {
         </div>
       </div>
 
-      <div className="stats-grid stats-grid-4 fault-kpi-row">
+      <div className="stats-grid stats-grid-3 fault-kpi-row">
         <div className="stat-card" style={{ ["--stat-color" as string]: "var(--primary)" }}>
           <div className="stat-label">数据中心总数</div>
           <div className="stat-value">{kpis.total}</div>
@@ -202,12 +203,6 @@ export function DatacenterPage() {
           <div className="stat-label">已停用</div>
           <div className="stat-value" style={{ color: "var(--text-3)" }}>
             {kpis.disabled}
-          </div>
-        </div>
-        <div className="stat-card" style={{ ["--stat-color" as string]: "var(--purple)" }}>
-          <div className="stat-label">默认数据中心</div>
-          <div className="stat-value" style={{ fontSize: 20 }}>
-            {kpis.defaultShortName}
           </div>
         </div>
       </div>
@@ -242,7 +237,7 @@ export function DatacenterPage() {
         <div className="card-header">
           <h3>数据中心列表</h3>
           <span className="text-muted" style={{ fontSize: 12 }}>
-            内置默认数据中心始终可用 · 标识用于节点 / 队列 / 集群关联 · Label Key 固定为 maip.io/datacenter
+            标识用于节点 / 队列 / 集群关联 · 节点未配置数据中心时保持未分配 · Label Key 固定为 maip.io/datacenter
           </span>
         </div>
         <div className="card-body flush">
@@ -274,8 +269,7 @@ export function DatacenterPage() {
                               {item.shortName}
                             </span>
                             <div>
-                              <strong>{item.name}</strong>
-                              {item.isDefault ? <span className="badge badge-info">默认</span> : null}{" "}
+                              <strong>{item.name}</strong>{" "}
                               {item.description ? (
                                 <div className="text-muted" style={{ fontSize: 11.5, marginTop: 2, maxWidth: 220, lineHeight: 1.4 }}>
                                   {item.description}
@@ -310,29 +304,16 @@ export function DatacenterPage() {
                             <Button size="sm" variant="secondary" onClick={() => openEdit(item)}>
                               编辑
                             </Button>
-                            {item.isDefault ? (
-                              <>
-                                <Button size="sm" variant="secondary" disabled title="默认数据中心始终启用">
-                                  停用
-                                </Button>
-                                <Button size="sm" variant="danger" disabled title="默认数据中心不可删除">
-                                  删除
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant={item.enabled ? "secondary" : "primary"}
-                                  onClick={() => setPending({ type: item.enabled ? "disable" : "enable", item })}
-                                >
-                                  {item.enabled ? "停用" : "启用"}
-                                </Button>
-                                <Button size="sm" variant="danger" onClick={() => setPending({ type: "delete", item })}>
-                                  删除
-                                </Button>
-                              </>
-                            )}
+                            <Button
+                              size="sm"
+                              variant={item.enabled ? "secondary" : "primary"}
+                              onClick={() => setPending({ type: item.enabled ? "disable" : "enable", item })}
+                            >
+                              {item.enabled ? "停用" : "启用"}
+                            </Button>
+                            <Button size="sm" variant="danger" onClick={() => setPending({ type: "delete", item })}>
+                              删除
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -366,7 +347,7 @@ export function DatacenterPage() {
       >
         <p className="modal-lead">
           数据中心标识将作为节点 Label 值（<span className="mono">maip.io/datacenter=&lt;标识&gt;</span>
-          ），并被队列、节点、集群等模块引用。创建后标识不可修改。平台内置「默认数据中心」始终可用，无需配置即可使用任务与节点相关功能。
+          ），并被队列、节点、集群等模块引用。创建后标识不可修改。节点未配置该标签时保持未分配，不会回落到默认数据中心。
         </p>
         <div className="form-grid">
           <div className="form-group">
@@ -427,27 +408,14 @@ export function DatacenterPage() {
             </div>
             <input id="dc-form-label-key" className="mono" value="maip.io/datacenter" readOnly tabIndex={-1} autoComplete="off" />
           </div>
-          <div className="form-group">
+          <div className="form-group full">
             <label htmlFor="dc-form-color">展示色</label>
-            <div className="dc-color-row">
-              <input
-                id="dc-form-color"
-                type="color"
-                title="数据中心角标颜色"
-                value={/^#[0-9A-Fa-f]{6}$/.test(form.color) ? form.color : "#3b82f6"}
-                onChange={(event) => setForm((prev) => ({ ...prev, color: event.target.value }))}
-              />
-              <input
-                id="dc-form-color-text"
-                type="text"
-                className="mono"
-                placeholder="#3b82f6"
-                autoComplete="off"
-                spellCheck={false}
-                value={form.color}
-                onChange={(event) => setForm((prev) => ({ ...prev, color: event.target.value }))}
-              />
-            </div>
+            <ColorField
+              key={formOpen ? (editing ? `edit-${editing.id}` : "create") : "closed"}
+              id="dc-form-color"
+              value={form.color}
+              onChange={(color) => setForm((prev) => ({ ...prev, color }))}
+            />
           </div>
           <div className="form-group full">
             <label>Label 预览</label>
@@ -509,7 +477,7 @@ export function DatacenterPage() {
                 : pending.type === "disable"
                   ? "停用后，新建队列等场景将不可再选择该数据中心；已有节点 / 队列关联不受影响。"
                   : pending.item.usage.nodes + pending.item.usage.queues + pending.item.usage.clusters > 0
-                    ? `当前关联 ${pending.item.usage.nodes} 节点 / ${pending.item.usage.queues} 队列 / ${pending.item.usage.clusters} 集群。删除后这些资源将自动改挂到「默认数据中心」。`
+                    ? `当前关联 ${pending.item.usage.nodes} 节点 / ${pending.item.usage.queues} 队列 / ${pending.item.usage.clusters} 集群。存在关联时不可删除，不会改挂到默认数据中心。`
                     : "删除后不可恢复。"}
             </p>
           </>

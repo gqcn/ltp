@@ -18,7 +18,7 @@ import (
 )
 
 // List 返回经过筛选、排序和分页的数据中心列表。
-// 默认数据中心排在最前，其余按创建顺序（id 升序）。
+// 按创建顺序（id 升序）排列。
 func (s *serviceImpl) List(ctx context.Context, in ListInput) (*ListOutput, error) {
 	pageNum := in.PageNum
 	pageSize := in.PageSize
@@ -40,7 +40,6 @@ func (s *serviceImpl) List(ctx context.Context, in ListInput) (*ListOutput, erro
 
 	var rows []*entity.OpsDatacenter
 	if err := s.listModel(ctx, in).
-		OrderDesc(dao.OpsDatacenter.Columns().IsDefault).
 		OrderAsc(dao.OpsDatacenter.Columns().Id).
 		Page(pageNum, pageSize).
 		Scan(&rows); err != nil {
@@ -67,19 +66,10 @@ func (s *serviceImpl) summary(ctx context.Context) (Summary, error) {
 	if err != nil {
 		return Summary{}, gerror.Wrap(err, "count enabled datacenters")
 	}
-	var def *entity.OpsDatacenter
-	if err := dao.OpsDatacenter.Ctx(ctx).Where(do.OpsDatacenter{IsDefault: true}).Scan(&def); err != nil {
-		return Summary{}, gerror.Wrap(err, "load default datacenter")
-	}
-	shortName := "默认"
-	if def != nil && def.ShortName != "" {
-		shortName = def.ShortName
-	}
 	return Summary{
-		Total:            total,
-		Enabled:          enabled,
-		Disabled:         total - enabled,
-		DefaultShortName: shortName,
+		Total:    total,
+		Enabled:  enabled,
+		Disabled: total - enabled,
 	}, nil
 }
 

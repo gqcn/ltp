@@ -5,6 +5,7 @@ package middleware
 import (
 	"github.com/gogf/gf/v2/net/ghttp"
 
+	"github.com/gqcn/ltp/internal/model"
 	authsvc "github.com/gqcn/ltp/internal/service/auth"
 	"github.com/gqcn/ltp/pkg/bizerr"
 )
@@ -21,6 +22,14 @@ func (s *serviceImpl) Auth(r *ghttp.Request) {
 		r.SetError(bizerr.New(authsvc.CodeUnauthorized))
 		return
 	}
-	s.bizCtxSvc.SetUser(r.Context(), user.ID, user.Username, user.Nickname)
+	s.bizCtxSvc.SetUser(r.Context(), model.Context{
+		UserID:   user.ID,
+		Username: user.Username,
+		Nickname: user.Nickname,
+		IsAdmin:  user.IsAdmin,
+		Source:   string(user.Source),
+		RoleCode: string(user.RoleCode),
+		Menus:    append([]string{}, user.Menus...),
+	})
 	r.Middleware.Next()
 }

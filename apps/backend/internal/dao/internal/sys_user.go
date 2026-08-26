@@ -21,26 +21,38 @@ type SysUserDao struct {
 
 // SysUserColumns defines and stores column names for the table sys_user.
 type SysUserColumns struct {
-	Id        string // User ID
-	Username  string // Login username
-	Password  string // Password hash
-	Nickname  string // Display name
-	Status    string // Status: 1=enabled 0=disabled
-	CreatedAt string // Creation time
-	UpdatedAt string // Update time
-	DeletedAt string // Deletion time
+	Id          string // 用户 ID
+	Username    string // 登录用户名
+	Password    string // 密码哈希
+	Nickname    string // 显示名称
+	Status      string // 状态：1=启用 0=停用
+	CreatedAt   string // 创建时间
+	UpdatedAt   string // 更新时间
+	DeletedAt   string // 删除时间
+	Email       string // 邮箱
+	Department  string // 部门，通常映射自 LDAP ou
+	Title       string // 职位
+	RoleCode    string // 平台角色编码：algo / sre，本地管理员为空
+	Source      string // 账号来源：local=本地管理员 ldap=目录用户
+	LastLoginAt string // 最近登录时间
 }
 
 // sysUserColumns holds the columns for the table sys_user.
 var sysUserColumns = SysUserColumns{
-	Id:        "id",
-	Username:  "username",
-	Password:  "password",
-	Nickname:  "nickname",
-	Status:    "status",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
-	DeletedAt: "deleted_at",
+	Id:          "id",
+	Username:    "username",
+	Password:    "password",
+	Nickname:    "nickname",
+	Status:      "status",
+	CreatedAt:   "created_at",
+	UpdatedAt:   "updated_at",
+	DeletedAt:   "deleted_at",
+	Email:       "email",
+	Department:  "department",
+	Title:       "title",
+	RoleCode:    "role_code",
+	Source:      "source",
+	LastLoginAt: "last_login_at",
 }
 
 // NewSysUserDao creates and returns a new DAO object for table data access.

@@ -19,8 +19,8 @@ type Service interface {
 	Init(r *ghttp.Request, customCtx *model.Context)
 	// Get 读取业务上下文，不存在时返回 nil。
 	Get(ctx context.Context) *model.Context
-	// SetUser 保存已认证用户身份。
-	SetUser(ctx context.Context, userID int64, username string, nickname string)
+	// SetUser 保存已认证用户身份快照。
+	SetUser(ctx context.Context, ident model.Context)
 }
 
 var _ Service = (*serviceImpl)(nil)

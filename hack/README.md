@@ -5,5 +5,6 @@
 | 路径 | 作用 |
 | --- | --- |
 | `makefiles/` | 根`Makefile`引入的目标 |
+| `scripts/` | Make 目标调用的辅助脚本，例如`make status`、`make stop` |
 | `deploy/` | 可选 Compose 文件；本地开发使用本机`PostgreSQL` |
 | `tests/` | Playwright E2E |

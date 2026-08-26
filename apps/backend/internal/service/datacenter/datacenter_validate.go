@@ -35,9 +35,6 @@ func validateCode(code string) error {
 	if code == "" {
 		return bizerr.New(CodeInvalidInput, bizerr.P("message", "请填写数据中心标识、显示名称与简称"))
 	}
-	if code == consts.DefaultDatacenterCode {
-		return bizerr.New(CodeInvalidInput, bizerr.P("message", "标识 default 为系统保留，请使用其它标识"))
-	}
 	if !codePattern.MatchString(code) {
 		return bizerr.New(CodeInvalidInput, bizerr.P("message", "数据中心标识仅支持小写字母、数字与连字符，且不能以连字符开头/结尾"))
 	}

@@ -1,4 +1,4 @@
-.PHONY: db.up db.down db.init db.mock dao ctrl
+.PHONY: db.up db.down db.init db.mock dao ctrl ldap.up ldap.down
 
 ## db.up: 等待本机 PostgreSQL 就绪，并确保存在数据库 ltp
 db.up:
@@ -18,6 +18,15 @@ db.init: db.up
 ## db.mock: 加载可选原型数据中心
 db.mock: db.up
 	@cd $(BACKEND_DIR) && go run . mock
+
+## ldap.up: 启动本地模拟 LDAP
+ldap.up:
+	@docker compose -f $(ROOT_DIR)/hack/deploy/docker-compose.yml up -d ldap
+	@echo "LDAP ldap://127.0.0.1:1389  BaseDN=dc=msxf,dc=com  BindDN=cn=admin,dc=msxf,dc=com"
+
+## ldap.down: 停止本地模拟 LDAP
+ldap.down:
+	@docker compose -f $(ROOT_DIR)/hack/deploy/docker-compose.yml stop ldap
 
 ## dao: 生成 DAO/DO/Entity
 dao:

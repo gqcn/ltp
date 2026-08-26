@@ -1,0 +1,225 @@
+dn: ou=users,dc=msxf,dc=com
+objectClass: organizationalUnit
+objectClass: top
+ou: users
+
+dn: uid=algo,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: algo
+cn: 算法工程师
+sn: 算法工程师
+mail: algo@msxf.com
+title: 算法工程师
+ou: 人工智能中心 / 算法
+userPassword: algo123
+
+dn: uid=sre,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: sre
+cn: SRE工程师
+sn: SRE工程师
+mail: sre@msxf.com
+title: SRE工程师
+ou: 基础架构 / SRE
+userPassword: sre123
+
+dn: uid=guoqiang,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: guoqiang
+cn: 郭强
+sn: 郭强
+mail: guoqiang@msxf.com
+title: 人工智能全干工程师
+ou: 人工智能中心 / SLM
+userPassword: ldap123
+
+dn: uid=wujialing,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: wujialing
+cn: 伍佳灵
+sn: 伍佳灵
+mail: wujialing@msxf.com
+title: 算法工程师
+ou: 人工智能中心 / SLM
+userPassword: ldap123
+
+dn: uid=liyunbin,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: liyunbin
+cn: 李云彬
+sn: 李云彬
+mail: liyunbin@msxf.com
+title: 算法工程师
+ou: 人工智能中心 / 研究组
+userPassword: ldap123
+
+dn: uid=zhaohaiyang,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: zhaohaiyang
+cn: 赵海洋
+sn: 赵海洋
+mail: zhaohaiyang@msxf.com
+title: 算法工程师
+ou: 人工智能中心 / 研究组
+userPassword: ldap123
+
+dn: uid=hanweiqiang,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: hanweiqiang
+cn: 韩卫强
+sn: 韩卫强
+mail: hanweiqiang@msxf.com
+title: 算法工程师
+ou: 人工智能中心 / 数据组
+userPassword: ldap123
+
+dn: uid=linhaili,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: linhaili
+cn: 林海立
+sn: 林海立
+mail: linhaili@msxf.com
+title: 算法工程师
+ou: 人工智能中心 / SLM
+userPassword: ldap123
+
+dn: uid=xuetong,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: xuetong
+cn: 薛童
+sn: 薛童
+mail: xuetong@msxf.com
+title: 运维工程师
+ou: 基础架构 / SRE
+userPassword: ldap123
+
+dn: uid=wangzhendong,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: wangzhendong
+cn: 王振东
+sn: 王振东
+mail: wangzhendong@msxf.com
+title: 平台管理员
+ou: 人工智能中心
+userPassword: ldap123
+
+dn: uid=xiongyunchuan,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: xiongyunchuan
+cn: 熊云川
+sn: 熊云川
+mail: xiongyunchuan@msxf.com
+title: 算法工程师
+ou: 人工智能中心 / NLP
+userPassword: ldap123
+
+dn: uid=sunlei,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: sunlei
+cn: 孙磊
+sn: 孙磊
+mail: sunlei@msxf.com
+title: 算法工程师
+ou: 人工智能中心 / SLM
+userPassword: ldap123
+
+dn: uid=zhoumin,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: zhoumin
+cn: 周敏
+sn: 周敏
+mail: zhoumin@msxf.com
+title: 高级算法工程师
+ou: 人工智能中心 / 研究组
+userPassword: ldap123
+
+dn: uid=wuxiaofeng,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: wuxiaofeng
+cn: 吴晓峰
+sn: 吴晓峰
+mail: wuxiaofeng@msxf.com
+title: 数据工程师
+ou: 人工智能中心 / 数据组
+userPassword: ldap123
+
+dn: uid=hejing,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: hejing
+cn: 何静
+sn: 何静
+mail: hejing@msxf.com
+title: 后端工程师
+ou: 基础架构 / 平台
+userPassword: ldap123
+
+dn: uid=dengkai,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: dengkai
+cn: 邓凯
+sn: 邓凯
+mail: dengkai@msxf.com
+title: 算法工程师
+ou: 人工智能中心 / NLP
+userPassword: ldap123
+
+dn: uid=fangyuan,ou=users,dc=msxf,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: fangyuan
+cn: 方圆
+sn: 方圆
+mail: fangyuan@msxf.com
+title: 模型工程师
+ou: 风险管理 / 模型
+userPassword: ldap123

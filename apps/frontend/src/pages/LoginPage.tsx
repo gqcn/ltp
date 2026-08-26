@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/toast";
 import { login } from "@/api/auth";
+import { homePath } from "@/lib/access";
 import { ApiError } from "@/api/client";
 import { toggleTheme } from "@/lib/theme";
 
@@ -25,11 +26,12 @@ export function LoginPage() {
   const [error, setError] = useState("");
 
   const mutation = useMutation({
-    mutationFn: () => login(username.trim(), password),
+    mutationFn: () => login(mode, username.trim(), password),
     onSuccess: async (data) => {
       queryClient.setQueryData(["session"], data);
-      toast.success(`平台管理员登录成功，欢迎 ${data.user.nickname || data.user.username}`);
-      navigate("/ops/datacenters", { replace: true });
+      const name = data.user.nickname || data.user.username;
+      toast.success(mode === "admin" ? `平台管理员登录成功，欢迎 ${name}` : `LDAP 登录成功，欢迎 ${name}`);
+      navigate(homePath(data.user), { replace: true });
     },
     onError: (err) => {
       const message = err instanceof ApiError ? err.message : "登录失败";
@@ -52,10 +54,6 @@ export function LoginPage() {
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError("");
-    if (mode === "ldap") {
-      setError("LDAP 身份认证将在后续模块接入，请使用平台管理员入口");
-      return;
-    }
     mutation.mutate();
   }
 

@@ -1,17 +1,21 @@
-// TC002：校验数据中心创建、编辑、停用、删除与默认中心保护。
+// TC002：校验数据中心创建、编辑、停用、删除，且不再出现内置默认数据中心。
 
+import { mkdirSync } from "node:fs";
+import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { loginAsAdmin } from "../login";
 
-test("TC002 datacenter create edit disable delete and default protection", async ({ page }) => {
+test("TC002 datacenter create edit disable delete without builtin default", async ({ page }) => {
   const code = `e2e${Date.now()}`;
   await loginAsAdmin(page);
   await expect(page.getByRole("heading", { name: "数据中心管理" })).toBeVisible();
+  await expect(page.getByText("节点未配置时保持未分配")).toBeVisible();
+  await expect(page.getByText("默认数据中心", { exact: true })).toHaveCount(0);
+  await expect(page.locator("table").getByText("默认数据中心", { exact: true })).toHaveCount(0);
 
-  const defaultRow = page.locator("tr", { hasText: "default" }).first();
-  await expect(defaultRow.locator("strong")).toHaveText("默认数据中心");
-  await expect(defaultRow.getByRole("button", { name: "停用" })).toBeDisabled();
-  await expect(defaultRow.getByRole("button", { name: "删除" })).toBeDisabled();
+  const shotDir = path.resolve(process.cwd(), "../../temp/20260826");
+  mkdirSync(shotDir, { recursive: true });
+  await page.screenshot({ path: path.join(shotDir, "190000-tc002-datacenter-no-default.png") });
 
   await page.getByRole("button", { name: "+ 新建数据中心" }).click();
   const dialog = page.getByRole("dialog");

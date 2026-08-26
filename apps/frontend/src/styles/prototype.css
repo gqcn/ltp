@@ -7522,23 +7522,42 @@ label.flex-center input[type="checkbox"],
 }
 
 /* ---------- 运维中心：数据中心管理 ---------- */
+.dc-color-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
 .dc-color-row {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.dc-color-row input[type="color"] {
-  width: 40px;
+.dc-color-swatch {
+  width: 36px;
   height: 36px;
-  padding: 2px;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg-2);
+  display: grid;
+  place-items: center;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
-.dc-color-row input[type="text"] {
+.dc-color-swatch:hover {
+  filter: brightness(1.08);
+}
+
+.dc-color-swatch svg {
+  width: 15px;
+  height: 15px;
+}
+
+.dc-color-row input[type="text"],
+.dc-color-row input.mono {
   flex: 1;
   min-width: 0;
   box-sizing: border-box;
@@ -7552,13 +7571,42 @@ label.flex-center input[type="checkbox"],
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.dc-color-row input[type="text"]::placeholder {
+.dc-color-row input::placeholder {
   color: var(--text-3);
 }
 
-.dc-color-row input[type="text"]:focus {
+.dc-color-row input:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+.dc-color-palette {
+  display: grid;
+  grid-template-columns: repeat(8, 28px);
+  gap: 6px;
+  padding: 8px;
+  width: max-content;
+  max-width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.dc-color-chip {
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, #000 20%, transparent);
+  cursor: pointer;
+}
+
+.dc-color-chip:hover {
+  transform: scale(1.08);
+}
+
+.dc-color-chip.is-selected {
+  box-shadow: 0 0 0 2px var(--bg-1), 0 0 0 3px var(--primary);
 }
 
 .dc-badge.is-muted {

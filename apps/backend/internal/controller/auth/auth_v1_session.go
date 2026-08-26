@@ -21,11 +21,5 @@ func (c *ControllerV1) Session(ctx context.Context, _ *v1.SessionReq) (res *v1.S
 	if err != nil {
 		return nil, err
 	}
-	return &v1.SessionRes{
-		User: v1.SessionUser{
-			Id:       user.ID,
-			Username: user.Username,
-			Nickname: user.Nickname,
-		},
-	}, nil
+	return &v1.SessionRes{User: toSessionUser(user)}, nil
 }

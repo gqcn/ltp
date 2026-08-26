@@ -21,19 +21,19 @@ type OpsDatacenterDao struct {
 
 // OpsDatacenterColumns defines and stores column names for the table ops_datacenter.
 type OpsDatacenterColumns struct {
-	Id          string // Datacenter ID
-	Code        string // Immutable business code used as maip.io/datacenter label value
-	Name        string // Display name
-	ShortName   string // Short name used in badges
-	Region      string // Region text
-	LabelKey    string // Kubernetes label key, always maip.io/datacenter
-	Color       string // Badge color in #RRGGBB
-	Description string // Description
-	Enabled     string // Whether the datacenter can be selected by new resources
-	IsDefault   string // Whether this is the built-in default datacenter
-	CreatedAt   string // Creation time
-	UpdatedAt   string // Update time
-	DeletedAt   string // Deletion time
+	Id          string // 数据中心 ID
+	Code        string // 不可变业务标识，作为 maip.io/datacenter 标签值
+	Name        string // 显示名称
+	ShortName   string // 列表角标使用的简称
+	Region      string // 区域文本
+	LabelKey    string // Kubernetes 标签键，固定为 maip.io/datacenter
+	Color       string // 角标颜色，格式 #RRGGBB
+	Description string // 说明
+	Enabled     string // 新建资源是否可选该数据中心
+	IsDefault   string // 是否为内置默认数据中心
+	CreatedAt   string // 创建时间
+	UpdatedAt   string // 更新时间
+	DeletedAt   string // 删除时间
 }
 
 // opsDatacenterColumns holds the columns for the table ops_datacenter.

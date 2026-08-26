@@ -17,31 +17,40 @@ import (
 	"github.com/gqcn/ltp/internal/dao"
 	"github.com/gqcn/ltp/internal/model/do"
 	"github.com/gqcn/ltp/internal/model/entity"
+	"github.com/gqcn/ltp/internal/service/role"
 	"github.com/gqcn/ltp/pkg/bizerr"
 	"github.com/gqcn/ltp/pkg/logger"
 )
 
 const sessionTokenBytes = 32
 
-// Login 校验凭据并创建新的服务端会话。
-func (s *serviceImpl) Login(ctx context.Context, username string, password string, userAgent string, ipAddress string) (LoginResult, error) {
-	username = strings.TrimSpace(username)
-	if username == "" || password == "" {
-		return LoginResult{}, bizerr.New(CodeInvalidCredentials)
+// Login 按登录方式校验凭据并创建新的服务端会话。
+func (s *serviceImpl) Login(ctx context.Context, in LoginInput) (LoginResult, error) {
+	mode, ok := ParseLoginMode(string(in.Mode))
+	if !ok {
+		return LoginResult{}, bizerr.New(CodeInvalidCredentials, bizerr.P("message", "请选择登录方式"))
 	}
-	var user *entity.SysUser
-	err := dao.SysUser.Ctx(ctx).Where(do.SysUser{Username: username}).Scan(&user)
+	username := normalizeLoginName(in.Username)
+	password := in.Password
+	if username == "" || password == "" {
+		if mode == LoginModeAdmin {
+			return LoginResult{}, bizerr.New(CodeInvalidCredentials, bizerr.P("message", "请输入平台管理员账号和密码"))
+		}
+		return LoginResult{}, bizerr.New(CodeInvalidCredentials, bizerr.P("message", "请输入域账号和密码"))
+	}
+	var row *entity.SysUser
+	err := dao.SysUser.Ctx(ctx).Where(do.SysUser{Username: username}).Scan(&row)
 	if err != nil {
 		return LoginResult{}, gerror.Wrap(err, "query user")
 	}
-	if user == nil {
-		return LoginResult{}, bizerr.New(CodeInvalidCredentials)
-	}
-	if UserStatus(user.Status) != UserStatusEnabled {
-		return LoginResult{}, bizerr.New(CodeUserDisabled)
-	}
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-		return LoginResult{}, bizerr.New(CodeInvalidCredentials)
+	if mode == LoginModeAdmin {
+		if err := s.verifyAdmin(row, password); err != nil {
+			return LoginResult{}, err
+		}
+	} else {
+		if err := s.verifyLDAP(ctx, row, username, password); err != nil {
+			return LoginResult{}, err
+		}
 	}
 	token, err := generateSessionToken()
 	if err != nil {
@@ -49,24 +58,25 @@ func (s *serviceImpl) Login(ctx context.Context, username string, password strin
 	}
 	expiresAt := time.Now().Add(s.sessionTTL)
 	if _, err := dao.SysUserSession.Ctx(ctx).Data(do.SysUserSession{
-		UserId:    user.Id,
+		UserId:    row.Id,
 		TokenHash: sessionTokenHash(token),
-		UserAgent: clip(userAgent, 512),
-		IpAddress: clip(ipAddress, 64),
+		UserAgent: clip(in.UserAgent, 512),
+		IpAddress: clip(in.IPAddress, 64),
 		ExpiresAt: gtime.New(expiresAt),
 	}).Insert(); err != nil {
 		return LoginResult{}, gerror.Wrap(err, "create session")
 	}
-	logger.Infof(ctx, "user %s signed in", user.Username)
-	return LoginResult{
-		User: User{
-			ID:       user.Id,
-			Username: user.Username,
-			Nickname: user.Nickname,
-		},
-		Token:     token,
-		ExpiresAt: expiresAt,
-	}, nil
+	if _, err := dao.SysUser.Ctx(ctx).Where(do.SysUser{Id: row.Id}).Data(do.SysUser{
+		LastLoginAt: gtime.Now(),
+	}).Update(); err != nil {
+		return LoginResult{}, gerror.Wrap(err, "touch last login")
+	}
+	identity, err := s.projectUser(ctx, row)
+	if err != nil {
+		return LoginResult{}, err
+	}
+	logger.Infof(ctx, "user %s signed in via %s", row.Username, mode)
+	return LoginResult{User: identity, Token: token, ExpiresAt: expiresAt}, nil
 }
 
 // CurrentSession 解析当前已认证会话令牌。
@@ -96,7 +106,72 @@ func (s *serviceImpl) CurrentSession(ctx context.Context, token string) (User, e
 	if user == nil || UserStatus(user.Status) != UserStatusEnabled {
 		return User{}, bizerr.New(CodeUnauthorized)
 	}
-	return User{ID: user.Id, Username: user.Username, Nickname: user.Nickname}, nil
+	return s.projectUser(ctx, user)
+}
+
+func (s *serviceImpl) verifyAdmin(row *entity.SysUser, password string) error {
+	if row == nil || parseUserSource(row.Source) != UserSourceLocal {
+		return bizerr.New(CodeInvalidCredentials, bizerr.P("message", "平台管理员账号或密码错误"))
+	}
+	if UserStatus(row.Status) != UserStatusEnabled {
+		return bizerr.New(CodeUserDisabled)
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(row.Password), []byte(password)); err != nil {
+		return bizerr.New(CodeInvalidCredentials, bizerr.P("message", "平台管理员账号或密码错误"))
+	}
+	return nil
+}
+
+func (s *serviceImpl) verifyLDAP(ctx context.Context, row *entity.SysUser, username string, password string) error {
+	if row == nil || parseUserSource(row.Source) != UserSourceLDAP {
+		return bizerr.New(CodeNotPlatformUser)
+	}
+	if UserStatus(row.Status) != UserStatusEnabled {
+		return bizerr.New(CodeUserDisabled)
+	}
+	if err := s.ldapSvc.BindUser(ctx, username, password); err != nil {
+		return bizerr.New(CodeInvalidCredentials, bizerr.P("message", "域账号或密码错误"))
+	}
+	return nil
+}
+
+func (s *serviceImpl) projectUser(ctx context.Context, row *entity.SysUser) (User, error) {
+	source := parseUserSource(row.Source)
+	out := User{
+		ID:         row.Id,
+		Username:   row.Username,
+		Nickname:   row.Nickname,
+		Email:      row.Email,
+		Department: row.Department,
+		Title:      row.Title,
+		Source:     source,
+		IsAdmin:    source == UserSourceLocal,
+	}
+	if out.IsAdmin {
+		out.RoleName = adminRoleName
+		out.Menus = role.AllMenus()
+		return out, nil
+	}
+	code, ok := role.ParseCode(row.RoleCode)
+	if !ok {
+		return out, nil
+	}
+	item, err := s.roleSvc.GetByCode(ctx, code)
+	if err != nil {
+		return User{}, err
+	}
+	out.RoleCode = item.Code
+	out.RoleName = item.Name
+	out.Menus = append([]string{}, item.Menus...)
+	return out, nil
+}
+
+func normalizeLoginName(raw string) string {
+	name := strings.ToLower(strings.TrimSpace(raw))
+	if i := strings.Index(name, "@"); i > 0 {
+		name = name[:i]
+	}
+	return name
 }
 
 // Logout 撤销当前会话令牌。

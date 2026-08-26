@@ -28,11 +28,15 @@ func (s *serviceImpl) Get(ctx context.Context) *model.Context {
 	return localCtx
 }
 
-// SetUser 保存已认证用户身份。
-func (s *serviceImpl) SetUser(ctx context.Context, userID int64, username string, nickname string) {
+// SetUser 保存已认证用户身份快照。
+func (s *serviceImpl) SetUser(ctx context.Context, ident model.Context) {
 	if c := s.Get(ctx); c != nil {
-		c.UserID = userID
-		c.Username = username
-		c.Nickname = nickname
+		c.UserID = ident.UserID
+		c.Username = ident.Username
+		c.Nickname = ident.Nickname
+		c.IsAdmin = ident.IsAdmin
+		c.Source = ident.Source
+		c.RoleCode = ident.RoleCode
+		c.Menus = append([]string{}, ident.Menus...)
 	}
 }

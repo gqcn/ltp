@@ -6,8 +6,8 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // CreateReq 创建数据中心。
 type CreateReq struct {
-	g.Meta      `path:"/datacenters" method:"post" tags:"Datacenter" summary:"创建数据中心" dc:"创建一条启用的非默认数据中心。标识须为小写字母、数字和连字符，不能以连字符开头或结尾，且不能为保留值 default。标签键固定为 maip.io/datacenter。" permission:"ops:datacenter:create"`
-	Code        string `json:"code" v:"required|max-length:64" dc:"不可变业务标识。小写字母、数字、连字符；不能为 default。" eg:"cq-lj"`
+	g.Meta      `path:"/datacenters" method:"post" tags:"Datacenter" summary:"创建数据中心" dc:"创建一条启用的数据中心。标识须为小写字母、数字和连字符，不能以连字符开头或结尾。标签键固定为 maip.io/datacenter。节点未配置该标签时保持未分配。" permission:"ops:datacenter:create"`
+	Code        string `json:"code" v:"required|max-length:64" dc:"不可变业务标识。小写字母、数字、连字符。" eg:"cq-lj"`
 	Name        string `json:"name" v:"required|max-length:128" dc:"显示名称" eg:"重庆两江"`
 	ShortName   string `json:"shortName" v:"required|max-length:32" dc:"列表角标使用的简称" eg:"两江"`
 	Region      string `json:"region" v:"max-length:64" dc:"可选区域文本。省略时为空。" eg:"重庆"`

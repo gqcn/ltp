@@ -12,13 +12,14 @@ export function initials(name: string) {
   return text ? text.slice(0, 1) : "管";
 }
 
-export function adminShellMeta(user: { username: string; nickname: string }) {
+export function adminShellMeta(user: { username: string; nickname: string; isAdmin?: boolean; roleName?: string }) {
   const displayName = user.nickname || user.username;
-  const isAdmin = user.username === "admin" || user.nickname === "平台管理员";
+  const isAdmin = Boolean(user.isAdmin);
+  const roleName = user.roleName || (isAdmin ? "平台管理员" : displayName);
   return {
     displayName,
-    roleName: isAdmin ? "平台管理员" : displayName,
+    roleName,
     avatar: isAdmin ? "管" : initials(displayName),
-    menuSub: isAdmin ? `${user.username} · 平台管理员` : user.username,
+    menuSub: `${user.username} · ${roleName}`,
   };
 }

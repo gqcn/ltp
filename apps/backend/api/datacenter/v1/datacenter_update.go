@@ -4,9 +4,9 @@ package v1
 
 import "github.com/gogf/gf/v2/frame/g"
 
-// UpdateReq 更新数据中心元数据。标识与默认标记不可改。
+// UpdateReq 更新数据中心元数据。标识不可改。
 type UpdateReq struct {
-	g.Meta      `path:"/datacenters/{id}" method:"put" tags:"Datacenter" summary:"更新数据中心" dc:"更新一条数据中心的展示元数据。标识、标签键与默认标记不可改。默认数据中心保持启用。" permission:"ops:datacenter:update"`
+	g.Meta      `path:"/datacenters/{id}" method:"put" tags:"Datacenter" summary:"更新数据中心" dc:"更新一条数据中心的展示元数据。标识与标签键不可改。" permission:"ops:datacenter:update"`
 	Id          int64  `json:"id" v:"required|min:1" dc:"数据中心 ID" eg:"2"`
 	Name        string `json:"name" v:"required|max-length:128" dc:"显示名称" eg:"重庆两江"`
 	ShortName   string `json:"shortName" v:"required|max-length:32" dc:"列表角标使用的简称" eg:"两江"`
