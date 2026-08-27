@@ -1,24 +1,35 @@
 import { useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { logout, type SessionUser } from "@/api/auth";
+import { getAlertSummary } from "@/api/alert";
+import type { Cluster } from "@/api/cluster";
+import { Modal } from "@/components/Modal";
 import { canVisit, MENU_OPS, MENU_PLATFORM } from "@/lib/access";
 import { applySidebarCollapsed, readSidebarCollapsed, toggleTheme, readTheme } from "@/lib/theme";
 import { adminShellMeta } from "@/lib/format";
+import { statusDot } from "@/lib/resources";
 import { toast } from "@/lib/toast";
+import { useWorkingCluster } from "@/lib/useWorkingCluster";
 
 type Props = {
   user: SessionUser;
 };
 
-const breadcrumbs: Record<string, string> = {
-  "/home": "工作台",
-  "/ops/datacenters": "数据中心",
-  "/platform/users": "用户管理",
-  "/platform/teams": "团队管理",
-  "/platform/roles": "角色管理",
-  "/platform/system": "系统配置",
+const breadcrumbs: Record<string, { current: string; suffix?: string }> = {
+  "/home": { current: "工作台" },
+  "/ops/datacenters": { current: "数据中心", suffix: "全局视图" },
+  "/ops/clusters": { current: "集群管理", suffix: "跨集群视图" },
+  "/ops/nodes": { current: "节点管理" },
+  "/ops/queues": { current: "队列管理" },
+  "/ops/alerts": { current: "告警中心" },
+  "/platform/users": { current: "用户管理" },
+  "/platform/teams": { current: "团队管理" },
+  "/platform/roles": { current: "角色管理" },
+  "/platform/system": { current: "系统配置" },
 };
+
+const workspaceClusterPages = new Set(["/ops/nodes", "/ops/queues", "/ops/alerts"]);
 
 export function AppShell({ user }: Props) {
   const navigate = useNavigate();
@@ -27,6 +38,7 @@ export function AppShell({ user }: Props) {
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
   const [menuOpen, setMenuOpen] = useState(false);
   const [, setTheme] = useState(readTheme);
+  const [pendingCluster, setPendingCluster] = useState<Cluster | null>(null);
 
   const logoutMutation = useMutation({
     mutationFn: logout,
@@ -47,8 +59,17 @@ export function AppShell({ user }: Props) {
   const shellUser = adminShellMeta(user);
   const showOps = canVisit(user, MENU_OPS);
   const showPlatform = canVisit(user, MENU_PLATFORM);
-  const current = breadcrumbs[location.pathname] || "控制台";
+  const crumb = breadcrumbs[location.pathname] || { current: "控制台" };
   const fillViewport = location.pathname === "/platform/system";
+  const { clusters, clusterId, current: workingCluster, select } = useWorkingCluster();
+  const showClusterSelect = showOps && clusters.length > 0 && workspaceClusterPages.has(location.pathname);
+  const alertSummary = useQuery({
+    queryKey: ["alert-summary"],
+    queryFn: getAlertSummary,
+    enabled: showOps,
+    refetchInterval: 30000,
+  });
+  const unfinished = alertSummary.data?.unfinished ?? 0;
 
   return (
     <div className={fillViewport ? "app is-viewport-page" : "app"}>
@@ -72,6 +93,35 @@ export function AppShell({ user }: Props) {
                   <path d="M9 10h.01M15 10h.01" />
                 </svg>
                 <span className="nav-item-label">数据中心</span>
+              </NavLink>
+              <NavLink to="/ops/clusters" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+                </svg>
+                <span className="nav-item-label">集群管理</span>
+              </NavLink>
+              <NavLink to="/ops/nodes" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="2" y="3" width="20" height="14" rx="2" />
+                  <path d="M8 21h8M12 17v4" />
+                </svg>
+                <span className="nav-item-label">节点管理</span>
+              </NavLink>
+              <NavLink to="/ops/queues" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 6h16M4 12h12M4 18h8" />
+                  <path d="M18 12v6M15 15h6" />
+                </svg>
+                <span className="nav-item-label">队列管理</span>
+              </NavLink>
+              <NavLink to="/ops/alerts" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                <span className="nav-item-label">告警中心</span>
+                {unfinished > 0 ? <span className="badge">{unfinished}</span> : null}
               </NavLink>
             </div>
           ) : null}
@@ -192,18 +242,75 @@ export function AppShell({ user }: Props) {
               </svg>
             </button>
             <div className="breadcrumb">
-              <span className="current">{current}</span>
-              <span className="sep">·</span>
-              <span className="text-muted" style={{ fontSize: 12 }}>
-                全局视图
-              </span>
+              <span className="current">{crumb.current}</span>
+              {crumb.suffix ? (
+                <>
+                  <span className="sep">·</span>
+                  <span className="text-muted" style={{ fontSize: 12 }}>
+                    {crumb.suffix}
+                  </span>
+                </>
+              ) : null}
             </div>
           </div>
+          {showClusterSelect ? (
+            <div className="topbar-right">
+              <div className="cluster-select-wrap" title="切换工作集群后，本页资源数据将整体切换">
+                <span className="cluster-select-label">工作集群</span>
+                <div className="cluster-select">
+                  <span className={`dot ${statusDot(workingCluster?.status || "")}`} title={workingCluster?.status ? `集群状态：${workingCluster.status}` : "集群状态"} />
+                  <select
+                    aria-label="工作集群"
+                    value={clusterId ?? ""}
+                    onChange={(event) => {
+                      const next = clusters.find((item) => item.id === Number(event.target.value));
+                      if (next && next.id !== clusterId) {
+                        setPendingCluster(next);
+                      }
+                    }}
+                  >
+                    {clusters.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </header>
         <div className="content">
           <Outlet />
         </div>
       </div>
+      <Modal
+        open={Boolean(pendingCluster)}
+        title="切换工作集群"
+        confirmText="确认切换并刷新"
+        modalClassName="modal-confirm modal-cluster-switch"
+        maxWidth={500}
+        onClose={() => setPendingCluster(null)}
+        onConfirm={() => {
+          if (pendingCluster) {
+            select(pendingCluster.id);
+          }
+          setPendingCluster(null);
+        }}
+      >
+        <p className="modal-msg cluster-switch-lead">
+          确定将<strong>工作集群</strong>从 <strong>{workingCluster?.displayName || "—"}</strong> 切换为 <strong>{pendingCluster?.displayName}</strong> 吗？
+        </p>
+        <div className="cluster-switch-impact">
+          <div className="cluster-switch-impact-title">切换后将整体切换以下数据视图</div>
+          <ul className="cluster-switch-impact-list">
+            <li>节点管理</li>
+            <li>队列管理 · 告警中心（按工作集群过滤）</li>
+            <li>未保存的筛选条件可能被重置</li>
+          </ul>
+        </div>
+        <p className="modal-hint">平台中心、「集群管理」与「数据中心管理」不受工作集群影响。</p>
+      </Modal>
     </div>
   );
 }

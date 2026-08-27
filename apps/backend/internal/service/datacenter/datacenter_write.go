@@ -75,28 +75,22 @@ func (s *serviceImpl) Update(ctx context.Context, in UpdateInput) error {
 	return nil
 }
 
-// UpdateStatus 启用或停用数据中心。
-func (s *serviceImpl) UpdateStatus(ctx context.Context, id int64, enabled bool) error {
-	if _, err := s.mustGet(ctx, id); err != nil {
-		return err
-	}
-	if _, err := dao.OpsDatacenter.Ctx(ctx).Where(do.OpsDatacenter{Id: id}).Data(do.OpsDatacenter{
-		Enabled: enabled,
-	}).Update(); err != nil {
-		return gerror.Wrap(err, "update datacenter status")
-	}
-	return nil
-}
-
-// Delete 软删除数据中心。
+// Delete 软删除数据中心。存在节点、队列或集群关联时拒绝，不得改挂到其他数据中心。
 func (s *serviceImpl) Delete(ctx context.Context, id int64) error {
-	row, err := s.mustGet(ctx, id)
+	item, err := s.Get(ctx, id)
 	if err != nil {
 		return err
+	}
+	if item.Usage.Nodes+item.Usage.Queues+item.Usage.Clusters > 0 {
+		return bizerr.New(CodeInUse,
+			bizerr.P("nodes", item.Usage.Nodes),
+			bizerr.P("queues", item.Usage.Queues),
+			bizerr.P("clusters", item.Usage.Clusters),
+		)
 	}
 	if _, err := dao.OpsDatacenter.Ctx(ctx).Where(do.OpsDatacenter{Id: id}).Delete(); err != nil {
 		return gerror.Wrap(err, "delete datacenter")
 	}
-	logger.Infof(ctx, "deleted datacenter %s id=%d", row.Code, id)
+	logger.Infof(ctx, "deleted datacenter %s id=%d", item.Code, id)
 	return nil
 }

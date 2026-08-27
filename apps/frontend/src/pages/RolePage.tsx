@@ -1,25 +1,34 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { listRoles, renameRole } from "@/api/role";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
+import { ListBody } from "@/components/ListLoading";
+import { FieldError } from "@/components/Field";
 import { Modal } from "@/components/Modal";
+import { errText, groupClass, invalidProps, useZodForm } from "@/lib/form";
 import { formatTime } from "@/lib/format";
 import { roleMenuLabel } from "@/lib/access";
 import { toast } from "@/lib/toast";
 
+const renameSchema = z.object({
+  name: z.string().trim().min(1, "请输入角色名称").max(32, "最长 32 个字符"),
+});
+
 export function RolePage() {
   const queryClient = useQueryClient();
   const [renameId, setRenameId] = useState<number | null>(null);
-  const [name, setName] = useState("");
   const [error, setError] = useState("");
+  const form = useZodForm(renameSchema, { defaultValues: { name: "" } });
+  const nameError = errText(form.formState.errors, "name") || error;
   const query = useQuery({ queryKey: ["roles"], queryFn: listRoles });
   const roles = query.data?.list ?? [];
   const current = roles.find((item) => item.id === renameId);
 
   const mutation = useMutation({
-    mutationFn: () => renameRole(renameId!, name.trim()),
-    onSuccess: async () => {
+    mutationFn: (name: string) => renameRole(renameId!, name.trim()),
+    onSuccess: async (_, name) => {
       toast.success(current && current.name !== name.trim() ? `角色已改名：${current.name} → ${name.trim()}` : "角色名称未变更");
       setRenameId(null);
       await queryClient.invalidateQueries({ queryKey: ["roles"] });
@@ -40,9 +49,14 @@ export function RolePage() {
       </div>
       <div className="card">
         <div className="card-body flush">
-          {query.isError ? (
-            <div className="empty-state">角色列表加载失败</div>
-          ) : (
+          <ListBody
+            loading={query.isLoading}
+            error={query.isError}
+            empty={roles.length === 0}
+            loadingLabel="正在加载角色…"
+            errorLabel="角色列表加载失败"
+            emptyLabel="暂无角色"
+          >
             <div className="table-wrap">
               <table className="table">
                 <thead>
@@ -88,7 +102,7 @@ export function RolePage() {
                             variant="secondary"
                             onClick={() => {
                               setRenameId(item.id);
-                              setName(item.name);
+                              form.reset({ name: item.name });
                               setError("");
                             }}
                           >
@@ -101,10 +115,12 @@ export function RolePage() {
                 </tbody>
               </table>
             </div>
+          </ListBody>
+          {query.isLoading || query.isError ? null : (
+            <div className="text-muted" style={{ padding: "10px 16px", fontSize: 12, lineHeight: 1.55 }}>
+              共 {roles.length} 个角色 · 算法工程师仅可见「训练中心」；SRE工程师可见「训练中心」与「运维中心」· 平台中心仅平台管理员可访问 · 角色权限范围固定，支持改名
+            </div>
           )}
-          <div className="text-muted" style={{ padding: "10px 16px", fontSize: 12, lineHeight: 1.55 }}>
-            共 {roles.length} 个角色 · 算法工程师仅可见「训练中心」；SRE工程师可见「训练中心」与「运维中心」· 平台中心仅平台管理员可访问 · 角色权限范围固定，支持改名
-          </div>
         </div>
       </div>
       <Modal
@@ -113,27 +129,25 @@ export function RolePage() {
         maxWidth={440}
         confirmText="保存"
         onClose={() => setRenameId(null)}
-        onConfirm={() => {
+        onConfirm={form.handleSubmit((values) => {
           setError("");
-          if (!name.trim()) {
-            setError("请输入角色名称");
-            return;
-          }
-          mutation.mutate();
-        }}
+          mutation.mutate(values.name);
+        })}
       >
         <p className="modal-lead">修改角色显示名称，不影响已分配用户的权限范围。</p>
-        <div className="form-group">
+        <div className={groupClass(nameError)}>
           <label htmlFor="role-rename-name">
             角色名称 <span className="req">*</span>
           </label>
-          <input id="role-rename-name" maxLength={32} value={name} placeholder="例如 算法工程师" onChange={(event) => setName(event.target.value)} />
+          <input
+            id="role-rename-name"
+            maxLength={32}
+            placeholder="例如 算法工程师"
+            {...form.register("name", { onChange: () => setError("") })}
+            {...invalidProps("role-rename-name", nameError)}
+          />
+          <FieldError id="role-rename-name-error">{nameError}</FieldError>
         </div>
-        {error ? (
-          <div className="login-error" style={{ marginTop: 4 }} role="alert">
-            {error}
-          </div>
-        ) : null}
       </Modal>
     </section>
   );

@@ -79,6 +79,24 @@ func (s *serviceImpl) Get(ctx context.Context, id int64) (*Item, error) {
 	if err != nil {
 		return nil, err
 	}
+	return s.projectOne(ctx, row)
+}
+
+// GetByCode 按业务标识返回数据中心。
+func (s *serviceImpl) GetByCode(ctx context.Context, code string) (*Item, error) {
+	code = strings.TrimSpace(code)
+	var row *entity.OpsDatacenter
+	err := dao.OpsDatacenter.Ctx(ctx).Where(do.OpsDatacenter{Code: code}).Scan(&row)
+	if err != nil {
+		return nil, gerror.Wrap(err, "get datacenter by code")
+	}
+	if row == nil {
+		return nil, bizerr.New(CodeNotFound)
+	}
+	return s.projectOne(ctx, row)
+}
+
+func (s *serviceImpl) projectOne(ctx context.Context, row *entity.OpsDatacenter) (*Item, error) {
 	items, err := s.projectItems(ctx, []*entity.OpsDatacenter{row})
 	if err != nil {
 		return nil, err
@@ -92,9 +110,6 @@ func (s *serviceImpl) Get(ctx context.Context, id int64) (*Item, error) {
 func (s *serviceImpl) listModel(ctx context.Context, in ListInput) *gdb.Model {
 	cols := dao.OpsDatacenter.Columns()
 	mod := dao.OpsDatacenter.Ctx(ctx)
-	if in.Enabled != nil {
-		mod = mod.Where(do.OpsDatacenter{Enabled: *in.Enabled})
-	}
 	keyword := strings.TrimSpace(in.Keyword)
 	if keyword != "" {
 		pattern := "%" + keyword + "%"

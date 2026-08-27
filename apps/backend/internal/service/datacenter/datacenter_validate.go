@@ -33,17 +33,23 @@ func normalizeColor(color string) string {
 
 func validateCode(code string) error {
 	if code == "" {
-		return bizerr.New(CodeInvalidInput, bizerr.P("message", "请填写数据中心标识、显示名称与简称"))
+		return bizerr.New(CodeInvalidInput, bizerr.P("message", "请填写数据中心标识"))
 	}
 	if !codePattern.MatchString(code) {
-		return bizerr.New(CodeInvalidInput, bizerr.P("message", "数据中心标识仅支持小写字母、数字与连字符，且不能以连字符开头/结尾"))
+		return bizerr.New(CodeInvalidInput, bizerr.P("message", "数据中心标识仅支持小写字母、数字与连字符，且不能以连字符开头或结尾"))
 	}
 	return nil
 }
 
 func validateRequiredText(code string, name string, shortName string) error {
-	if strings.TrimSpace(name) == "" || strings.TrimSpace(shortName) == "" || strings.TrimSpace(code) == "" {
-		return bizerr.New(CodeInvalidInput, bizerr.P("message", "请填写数据中心标识、显示名称与简称"))
+	if strings.TrimSpace(code) == "" {
+		return bizerr.New(CodeInvalidInput, bizerr.P("message", "请填写数据中心标识"))
+	}
+	if strings.TrimSpace(name) == "" {
+		return bizerr.New(CodeInvalidInput, bizerr.P("message", "请填写显示名称"))
+	}
+	if strings.TrimSpace(shortName) == "" {
+		return bizerr.New(CodeInvalidInput, bizerr.P("message", "请填写简称"))
 	}
 	return nil
 }

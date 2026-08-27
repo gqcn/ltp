@@ -60,11 +60,41 @@ func (s *serviceImpl) Get(ctx context.Context, id int64) (*Detail, error) {
 	if err != nil {
 		return nil, err
 	}
+	queues := []QueueRef{}
+	if s.queues != nil {
+		byTeam, qerr := s.queues.ListByTeamIDs(ctx, []int64{id})
+		if qerr != nil {
+			return nil, qerr
+		}
+		if list := byTeam[id]; list != nil {
+			queues = list
+		}
+	}
 	return &Detail{
 		Item:      *items[0],
 		Members:   members,
+		Queues:    queues,
 		UpdatedAt: model.UnixMilli(row.UpdatedAt),
 	}, nil
+}
+
+// MapByIDs 按 ID 批量返回团队名称。
+func (s *serviceImpl) MapByIDs(ctx context.Context, ids []int64) (map[int64]NameRef, error) {
+	out := make(map[int64]NameRef, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var rows []*entity.SysTeam
+	if err := dao.SysTeam.Ctx(ctx).WhereIn(dao.SysTeam.Columns().Id, ids).Scan(&rows); err != nil {
+		return nil, gerror.Wrap(err, "map teams by id")
+	}
+	for _, row := range rows {
+		if row == nil {
+			continue
+		}
+		out[row.Id] = NameRef{ID: row.Id, Name: row.Name}
+	}
+	return out, nil
 }
 
 func (s *serviceImpl) listModel(ctx context.Context, in ListInput) *gdb.Model {

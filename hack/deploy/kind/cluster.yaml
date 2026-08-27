@@ -1,0 +1,41 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ltp
+nodes:
+  - role: control-plane
+  - role: worker
+    labels:
+      maip.io/datacenter: cq-lj
+      maip.io/gpu-type: NVIDIA-H200
+      nvidia.com/gpu.present: "true"
+      nvidia.com/gpu.count: "8"
+      nvidia.com/gpu.product: NVIDIA-H200
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          name: gpu-node-h200
+  - role: worker
+    labels:
+      maip.io/datacenter: cq-lj
+      maip.io/gpu-type: NVIDIA-H800
+      nvidia.com/gpu.present: "true"
+      nvidia.com/gpu.count: "8"
+      nvidia.com/gpu.product: NVIDIA-H800
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          name: gpu-node-h800
+  - role: worker
+    labels:
+      maip.io/datacenter: cq-lj
+      maip.io/gpu-type: NVIDIA-GeForce-RTX-4090
+      nvidia.com/gpu.present: "true"
+      nvidia.com/gpu.count: "8"
+      nvidia.com/gpu.product: NVIDIA-GeForce-RTX-4090
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          name: gpu-node-4090

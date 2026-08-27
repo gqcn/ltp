@@ -23,8 +23,18 @@ export type TeamListItem = {
   createdAt: number;
 };
 
+export type TeamQueue = {
+  id: number;
+  name: string;
+  displayName: string;
+  datacenterCode: string;
+  enabled: boolean;
+  state: string;
+};
+
 export type TeamDetail = TeamListItem & {
   members: TeamMember[];
+  queues: TeamQueue[];
   updatedAt: number;
 };
 

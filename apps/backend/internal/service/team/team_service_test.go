@@ -53,9 +53,10 @@ func TestTeamCreateMemberAndDuplicateName(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := gctx.New()
-	users, err := userSvc.List(ctx, user.ListInput{PageNum: 1, PageSize: 10})
+	enabled := true
+	users, err := userSvc.List(ctx, user.ListInput{PageNum: 1, PageSize: 20, Enabled: &enabled})
 	if err != nil || len(users.List) < 2 {
-		t.Skip("need at least two platform users")
+		t.Skip("need at least two enabled platform users")
 	}
 	owner := users.List[0]
 	member := users.List[1]

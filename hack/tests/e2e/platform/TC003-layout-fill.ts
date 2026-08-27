@@ -1,5 +1,7 @@
 // TC003：控制台主栏铺满视口，用户表不在右侧裁切「最近登录」。
 
+import { mkdirSync } from "node:fs";
+import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { loginAsAdmin } from "../login";
 
@@ -28,9 +30,8 @@ test("TC003 shell fills viewport and user table is not clipped on the right", as
 
   const table = await page.evaluate(() => {
     const wrap = document.querySelector("#page-user-mgmt .table-wrap");
-    const lastLogin = [...document.querySelectorAll("#page-user-mgmt thead th")].find((th) =>
-      (th.textContent || "").includes("最近登录"),
-    );
+    const headers = [...document.querySelectorAll("#page-user-mgmt thead th")];
+    const lastLogin = headers.find((th) => (th.textContent || "").includes("最近登录"));
     const actions = document.querySelector("#page-user-mgmt thead th.th-actions");
     if (!wrap || !lastLogin || !actions) {
       return { ok: false };
@@ -39,15 +40,25 @@ test("TC003 shell fills viewport and user table is not clipped on the right", as
     const act = actions.getBoundingClientRect();
     return {
       ok: true,
-      wrapScrollWidth: wrap.scrollWidth,
-      wrapClientWidth: wrap.clientWidth,
+      lastLoginLeft: last.left,
       lastLoginRight: last.right,
       actionsLeft: act.left,
       lastLoginWidth: last.width,
+      lastLoginScrollWidth: lastLogin.scrollWidth,
+      lastLoginClientWidth: lastLogin.clientWidth,
+      clippedHeaders: headers
+        .map((th) => ({ text: (th.textContent || "").trim(), scroll: th.scrollWidth, client: th.clientWidth }))
+        .filter((h) => h.scroll > h.client + 1)
+        .map((h) => h.text),
     };
   });
   expect(table.ok).toBe(true);
-  expect(table.wrapScrollWidth).toBeLessThanOrEqual((table.wrapClientWidth ?? 0) + 1);
-  expect(table.lastLoginWidth ?? 0).toBeGreaterThan(48);
-  expect(table.lastLoginRight ?? 0).toBeLessThanOrEqual((table.actionsLeft ?? 0) + 1);
+  expect(table.clippedHeaders).toEqual([]);
+  expect(table.lastLoginWidth ?? 0).toBeGreaterThan(140);
+  expect(table.lastLoginScrollWidth ?? 0).toBeLessThanOrEqual((table.lastLoginClientWidth ?? 0) + 1);
+  expect(Math.min(table.lastLoginRight ?? 0, table.actionsLeft ?? 0) - (table.lastLoginLeft ?? 0)).toBeGreaterThan(80);
+
+  const shotDir = path.resolve(process.cwd(), "../../temp/20260827");
+  mkdirSync(shotDir, { recursive: true });
+  await page.screenshot({ path: path.join(shotDir, "140000-tc003-user-table-1440.png") });
 });

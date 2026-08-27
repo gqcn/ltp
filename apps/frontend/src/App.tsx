@@ -4,9 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { readSession, type SessionUser } from "@/api/auth";
 import { canVisit, homePath, MENU_OPS, MENU_PLATFORM } from "@/lib/access";
 import { AppShell } from "@/layout/AppShell";
+import { ListLoading } from "@/components/ListLoading";
+import { AlertPage } from "@/pages/AlertPage";
+import { ClusterPage } from "@/pages/ClusterPage";
 import { DatacenterPage } from "@/pages/DatacenterPage";
 import { HomePage } from "@/pages/HomePage";
 import { LoginPage } from "@/pages/LoginPage";
+import { NodePage } from "@/pages/NodePage";
+import { QueuePage } from "@/pages/QueuePage";
 import { RolePage } from "@/pages/RolePage";
 import { SystemConfigPage } from "@/pages/SystemConfigPage";
 import { TeamPage } from "@/pages/TeamPage";
@@ -27,7 +32,11 @@ export function App() {
   });
 
   if (sessionQuery.isLoading) {
-    return <div className="empty-state">加载中…</div>;
+    return (
+      <div className="card" style={{ margin: 48 }}>
+        <ListLoading label="正在进入控制台…" />
+      </div>
+    );
   }
 
   const user = sessionQuery.data?.user;
@@ -46,6 +55,46 @@ export function App() {
             user ? (
               <Guard user={user} menu={MENU_OPS}>
                 <DatacenterPage />
+              </Guard>
+            ) : null
+          }
+        />
+        <Route
+          path="ops/clusters"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_OPS}>
+                <ClusterPage />
+              </Guard>
+            ) : null
+          }
+        />
+        <Route
+          path="ops/nodes"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_OPS}>
+                <NodePage />
+              </Guard>
+            ) : null
+          }
+        />
+        <Route
+          path="ops/queues"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_OPS}>
+                <QueuePage />
+              </Guard>
+            ) : null
+          }
+        />
+        <Route
+          path="ops/alerts"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_OPS}>
+                <AlertPage />
               </Guard>
             ) : null
           }

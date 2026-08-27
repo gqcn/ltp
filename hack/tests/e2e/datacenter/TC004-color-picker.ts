@@ -16,8 +16,14 @@ test("TC004 datacenter color cycles from swatch, palette, and hex input", async 
 
   const hex = dialog.getByLabel("展示色");
   await expect(hex).toHaveValue("#3b82f6");
+
+  const labelKey = await dialog.locator("label[for='dc-form-label-key']").boundingBox();
+  const colorLabel = await dialog.locator("label[for='dc-form-color']").boundingBox();
+  expect(labelKey && colorLabel).toBeTruthy();
+  expect(Math.abs((labelKey?.y ?? 0) - (colorLabel?.y ?? 0))).toBeLessThan(8);
+
   await dialog.getByRole("button", { name: "换一个颜色" }).click();
-  await expect(hex).toHaveValue("#b60205");
+  await expect(hex).toHaveValue("#22d3ee");
   await expect(page.locator("input[type='color']")).toHaveCount(0);
 
   await hex.click();
@@ -26,7 +32,7 @@ test("TC004 datacenter color cycles from swatch, palette, and hex input", async 
 
   const shotDir = path.resolve(process.cwd(), "../../temp/20260826");
   mkdirSync(shotDir, { recursive: true });
-  await page.screenshot({ path: path.join(shotDir, "193000-tc004-color-palette.png") });
+  await page.screenshot({ path: path.join(shotDir, "194800-tc004-color-same-row.png") });
 
   await dialog.getByRole("option", { name: "#0e8a16" }).click();
   await expect(hex).toHaveValue("#0e8a16");

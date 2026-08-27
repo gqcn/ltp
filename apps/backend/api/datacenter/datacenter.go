@@ -16,5 +16,4 @@ type IDatacenterV1 interface {
 	Get(ctx context.Context, req *v1.GetReq) (res *v1.GetRes, err error)
 	List(ctx context.Context, req *v1.ListReq) (res *v1.ListRes, err error)
 	Update(ctx context.Context, req *v1.UpdateReq) (res *v1.UpdateRes, err error)
-	UpdateStatus(ctx context.Context, req *v1.UpdateStatusReq) (res *v1.UpdateStatusRes, err error)
 }

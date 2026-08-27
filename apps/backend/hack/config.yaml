@@ -20,7 +20,12 @@ gfcli:
           sys_team,
           sys_team_member,
           sys_ldap_config,
-          ops_datacenter
+          ops_datacenter,
+          ops_cluster,
+          ops_queue,
+          ops_queue_team,
+          ops_node_event,
+          ops_alert
         descriptionTag: true
         noModelComment: true
   docker:

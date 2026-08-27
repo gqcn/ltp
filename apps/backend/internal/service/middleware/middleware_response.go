@@ -42,7 +42,7 @@ func (s *serviceImpl) Response(r *ghttp.Request) {
 	}
 	payload := HandlerResponse{
 		Code:    code.Code(),
-		Message: err.Error(),
+		Message: localizeValidationMessage(err.Error()),
 		Data:    nil,
 	}
 	if messageErr, ok := bizerr.As(err); ok {

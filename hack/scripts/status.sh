@@ -182,7 +182,7 @@ check_http_app() {
 			status="error"
 		fi
 	elif pid_alive "$file_pid"; then
-		status="error"
+		status="starting"
 	else
 		status="stopped"
 	fi

@@ -6,18 +6,17 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ListReq 查询分页数据中心列表。
 type ListReq struct {
-	g.Meta   `path:"/datacenters" method:"get" tags:"Datacenter" summary:"列出数据中心" dc:"按关键词、启用状态和分页查询数据中心。筛选、排序与分页在返回当前页之前于数据库侧完成。关联计数批量装配，在节点、队列、集群模块接入前恒为 0。" permission:"ops:datacenter:query"`
+	g.Meta   `path:"/datacenters" method:"get" tags:"Datacenter" summary:"列出数据中心" dc:"按关键词和分页查询数据中心。筛选、排序与分页在返回当前页之前于数据库侧完成。关联节点/队列/集群计数批量装配。数据中心不再提供启停。" permission:"ops:datacenter:query"`
 	PageNum  int    `json:"pageNum" d:"1" v:"min:1" dc:"页码，从 1 开始。省略时默认为 1。" eg:"1"`
 	PageSize int    `json:"pageSize" d:"10" v:"min:1|max:100" dc:"每页条数。默认 10，最大 100。" eg:"10"`
 	Keyword  string `json:"keyword" dc:"可选模糊匹配标识、名称、简称、区域或说明。空表示不按关键词过滤。" eg:"两江"`
-	Enabled  *bool  `json:"enabled" dc:"可选启用状态过滤。省略返回全部，true 为启用，false 为停用。" eg:"true"`
 }
 
 // UsageItem 是单个数据中心的关联计数投影。
 type UsageItem struct {
-	Nodes    int `json:"nodes" dc:"关联节点数。节点模块接入前恒为 0。" eg:"0"`
-	Queues   int `json:"queues" dc:"关联队列数。队列模块接入前恒为 0。" eg:"0"`
-	Clusters int `json:"clusters" dc:"关联集群数。集群模块接入前恒为 0。" eg:"0"`
+	Nodes    int `json:"nodes" dc:"打了该数据中心标签的节点数。" eg:"2"`
+	Queues   int `json:"queues" dc:"绑定该数据中心的业务队列数。" eg:"1"`
+	Clusters int `json:"clusters" dc:"至少含一台该数据中心节点的接入集群数。" eg:"1"`
 }
 
 // ListItem 是列表响应中的一行数据中心。
@@ -31,7 +30,7 @@ type ListItem struct {
 	Label       string    `json:"label" dc:"完整标签表达式 maip.io/datacenter=<标识>" eg:"maip.io/datacenter=cq-lj"`
 	Color       string    `json:"color" dc:"角标颜色，格式 #RRGGBB" eg:"#3b82f6"`
 	Description string    `json:"description" dc:"说明" eg:"两江数据中心"`
-	Enabled     bool      `json:"enabled" dc:"数据中心是否启用" eg:"true"`
+	Enabled     bool      `json:"enabled" dc:"历史字段，恒为 true。系统不再提供数据中心启停。" eg:"true"`
 	IsDefault   bool      `json:"isDefault" dc:"历史字段，恒为 false。系统不再内置默认数据中心。" eg:"false"`
 	Usage       UsageItem `json:"usage" dc:"批量装配的关联计数"`
 	CreatedAt   int64     `json:"createdAt" dc:"创建时间，Unix 毫秒时间戳" eg:"1754000000000"`

@@ -1,10 +1,13 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { toast } from "@/lib/toast";
 import { login } from "@/api/auth";
 import { homePath } from "@/lib/access";
 import { ApiError } from "@/api/client";
+import { FieldError } from "@/components/Field";
+import { errText, groupClass, invalidProps, LINE_MAX, useZodForm, zLine } from "@/lib/form";
 import { toggleTheme } from "@/lib/theme";
 
 type LoginMode = "ldap" | "admin";
@@ -19,14 +22,24 @@ export function LoginPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<LoginMode>("ldap");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
   const [error, setError] = useState("");
+  const isAdmin = mode === "admin";
+  const schema = useMemo(
+    () =>
+      z.object({
+        username: zLine(isAdmin ? "请填写平台管理员账号" : "请填写域账号"),
+        password: zLine("请填写密码"),
+      }),
+    [isAdmin],
+  );
+  const form = useZodForm(schema, { defaultValues: { username: "", password: "" } });
+  const usernameError = errText(form.formState.errors, "username");
+  const passwordError = errText(form.formState.errors, "password");
 
   const mutation = useMutation({
-    mutationFn: () => login(mode, username.trim(), password),
+    mutationFn: (values: { username: string; password: string }) => login(mode, values.username.trim(), values.password),
     onSuccess: async (data) => {
       queryClient.setQueryData(["session"], data);
       const name = data.user.nickname || data.user.username;
@@ -42,22 +55,15 @@ export function LoginPage() {
   function applyMode(next: LoginMode) {
     setMode(next);
     setError("");
+    form.clearErrors();
     setShowPassword(false);
   }
 
   function fillDemo(account: (typeof demoAccounts)[number]) {
     applyMode(account.mode);
-    setUsername(account.username);
-    setPassword(account.password);
+    form.setValue("username", account.username);
+    form.setValue("password", account.password);
   }
-
-  function onSubmit(event: FormEvent) {
-    event.preventDefault();
-    setError("");
-    mutation.mutate();
-  }
-
-  const isAdmin = mode === "admin";
 
   useEffect(() => {
     document.getElementById("login-username")?.focus();
@@ -124,13 +130,20 @@ export function LoginPage() {
             平台管理员
           </button>
         </div>
-        <form className="login-form" onSubmit={onSubmit} autoComplete="on">
+        <form
+          className="login-form"
+          onSubmit={form.handleSubmit((values) => {
+            setError("");
+            mutation.mutate(values);
+          })}
+          autoComplete="on"
+        >
           {error ? (
             <div className="login-error" role="alert">
               {error}
             </div>
           ) : null}
-          <div className="form-group">
+          <div className={groupClass(usernameError)}>
             <label htmlFor="login-username">{isAdmin ? "平台管理员账号" : "域账号"}</label>
             <div className="login-input-wrap">
               <span className="login-input-icon" aria-hidden="true">
@@ -141,15 +154,16 @@ export function LoginPage() {
               </span>
               <input
                 id="login-username"
-                name="username"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
+                maxLength={LINE_MAX}
+                {...form.register("username")}
+                {...invalidProps("login-username", usernameError)}
                 placeholder={isAdmin ? "admin" : "algo 或 sre"}
                 autoComplete="username"
               />
             </div>
+            <FieldError id="login-username-error">{usernameError}</FieldError>
           </div>
-          <div className="form-group">
+          <div className={groupClass(passwordError)}>
             <label htmlFor="login-password">密码</label>
             <div className="login-input-wrap has-toggle">
               <span className="login-input-icon" aria-hidden="true">
@@ -160,10 +174,10 @@ export function LoginPage() {
               </span>
               <input
                 id="login-password"
-                name="password"
                 type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                maxLength={LINE_MAX}
+                {...form.register("password")}
+                {...invalidProps("login-password", passwordError)}
                 placeholder={isAdmin ? "admin123" : "对应演示密码"}
                 autoComplete="current-password"
               />
@@ -171,18 +185,14 @@ export function LoginPage() {
                 {showPassword ? "隐藏" : "显示"}
               </button>
             </div>
+            <FieldError id="login-password-error">{passwordError}</FieldError>
           </div>
           <button type="submit" className={mutation.isPending ? "btn btn-primary login-submit is-loading" : "btn btn-primary login-submit"}>
             <span className="login-submit-text">{isAdmin ? "平台管理员登录" : "LDAP 登录"}</span>
           </button>
         </form>
         <div className={demoOpen ? "login-demo-tip" : "login-demo-tip is-collapsed"}>
-          <button
-            type="button"
-            className="login-demo-tip-toggle"
-            aria-expanded={demoOpen}
-            onClick={() => setDemoOpen((open) => !open)}
-          >
+          <button type="button" className="login-demo-tip-toggle" aria-expanded={demoOpen} onClick={() => setDemoOpen((open) => !open)}>
             <span className="login-demo-tip-title">演示账号</span>
             <span className="ui-chevron" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">

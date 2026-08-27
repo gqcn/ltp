@@ -24,12 +24,24 @@ func (c *ControllerV1) Get(ctx context.Context, req *v1.GetReq) (res *v1.GetRes,
 			Department: member.Department,
 		})
 	}
+	queues := make([]v1.QueueRef, 0, len(out.Queues))
+	for _, q := range out.Queues {
+		queues = append(queues, v1.QueueRef{
+			Id:             q.ID,
+			Name:           q.Name,
+			DisplayName:    q.DisplayName,
+			DatacenterCode: q.DatacenterCode,
+			Enabled:        q.Enabled,
+			State:          q.State,
+		})
+	}
 	return &v1.GetRes{
 		Id:          out.ID,
 		Name:        out.Name,
 		Description: out.Description,
 		Owner:       toOwner(out.Owner),
 		Members:     members,
+		Queues:      queues,
 		CreatedAt:   out.CreatedAt,
 		UpdatedAt:   out.UpdatedAt,
 	}, nil

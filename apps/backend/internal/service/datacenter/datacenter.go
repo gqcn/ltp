@@ -39,7 +39,7 @@ type Item struct {
 	Label       string     // 标签文案
 	Color       string     // 展示色
 	Description string     // 描述
-	Enabled     bool       // 是否启用
+	Enabled     bool       // 历史启停字段，新建恒为 true
 	IsDefault   bool       // 是否默认中心
 	Usage       UsageStats // 关联计数
 	CreatedAt   int64      // 创建时间戳
@@ -51,7 +51,6 @@ type ListInput struct {
 	PageNum  int    // 页码，从 1 开始
 	PageSize int    // 每页条数
 	Keyword  string // 名称或标识关键词
-	Enabled  *bool  // 启停筛选，nil 表示全部
 }
 
 // Summary 是页面 KPI 使用的未筛选库存快照。
@@ -94,13 +93,13 @@ type Service interface {
 	List(ctx context.Context, in ListInput) (*ListOutput, error)
 	// Get 按 ID 返回数据中心；不存在时返回 CodeNotFound。
 	Get(ctx context.Context, id int64) (*Item, error)
+	// GetByCode 按业务标识返回数据中心；不存在时返回 CodeNotFound。
+	GetByCode(ctx context.Context, code string) (*Item, error)
 	// Create 插入一条启用的数据中心并返回 ID。
 	Create(ctx context.Context, in CreateInput) (int64, error)
 	// Update 修改展示元数据。标识不可改。
 	Update(ctx context.Context, in UpdateInput) error
-	// UpdateStatus 启用或停用数据中心。
-	UpdateStatus(ctx context.Context, id int64, enabled bool) error
-	// Delete 软删除数据中心。本迭代无节点/队列/集群关联时直接删除。
+	// Delete 软删除数据中心。存在节点、队列或集群关联时拒绝。
 	Delete(ctx context.Context, id int64) error
 }
 

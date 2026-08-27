@@ -53,3 +53,9 @@ auth:
   sessionTTL: "24h"
   # 浏览器会话 Cookie 名称，须与前端携带的 Cookie 一致。
   cookieName: "ltp_session"
+
+# 运维中心
+ops:
+  fastx:
+    # FastX Webhook 共享令牌。留空则本地不校验；生产必须填写。
+    webhookToken: ""

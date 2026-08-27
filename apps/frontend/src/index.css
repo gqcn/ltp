@@ -71,27 +71,6 @@ body:has(.app.is-viewport-page),
   padding-bottom: 0;
 }
 
-#page-user-mgmt .table {
-  width: 100%;
-  min-width: 0;
-  table-layout: fixed;
-}
-
-#page-user-mgmt .table th.th-check,
-#page-user-mgmt .table td.td-check {
-  width: 40px;
-}
-
-#page-user-mgmt .table th:not(.th-actions):not(.th-check),
-#page-user-mgmt .table td:not(.td-actions):not(.td-check) {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-#page-user-mgmt .table td .tag {
-  max-width: 100%;
-}
-
 .mono {
   font-family: var(--mono);
 }

@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { getLdapConfig, saveLdapConfig, testLdapConfig, type LdapForm } from "@/api/system";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
+import { FieldError } from "@/components/Field";
+import { errText, groupClass, invalidProps, LINE_MAX, useZodForm, zLine, zLineOpt } from "@/lib/form";
 import { toast } from "@/lib/toast";
 
 const emptyForm: LdapForm = {
@@ -23,17 +26,50 @@ const emptyForm: LdapForm = {
   timeoutSec: 10,
 };
 
+const portMessage = "请填写 1–65535 之间的端口";
+
+const ldapSchema = z.object({
+  name: zLineOpt(),
+  host: zLine("请填写主机"),
+  port: z.coerce.number({ error: portMessage }).int({ error: portMessage }).min(1, portMessage).max(65535, portMessage),
+  useTls: z.boolean(),
+  baseDn: zLine("请填写 Base DN"),
+  bindDn: zLine("请填写 Bind DN"),
+  bindPassword: zLineOpt(),
+  userFilter: zLineOpt(),
+  searchFilter: zLineOpt(),
+  attrUsername: zLineOpt(),
+  attrName: zLineOpt(),
+  attrEmail: zLineOpt(),
+  attrDepartment: zLineOpt(),
+  attrTitle: zLineOpt(),
+  timeoutSec: z.coerce.number(),
+});
+
 export function SystemConfigPage() {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<LdapForm>(emptyForm);
+  const form = useZodForm(ldapSchema, { defaultValues: emptyForm });
   const query = useQuery({ queryKey: ["ldap-config"], queryFn: getLdapConfig });
+  const hostError = errText(form.formState.errors, "host");
+  const portError = errText(form.formState.errors, "port");
+  const baseDnError = errText(form.formState.errors, "baseDn");
+  const bindDnError = errText(form.formState.errors, "bindDn");
+  const nameError = errText(form.formState.errors, "name");
+  const bindPwdError = errText(form.formState.errors, "bindPassword");
+  const userFilterError = errText(form.formState.errors, "userFilter");
+  const searchFilterError = errText(form.formState.errors, "searchFilter");
+  const attrUserError = errText(form.formState.errors, "attrUsername");
+  const attrNameError = errText(form.formState.errors, "attrName");
+  const attrEmailError = errText(form.formState.errors, "attrEmail");
+  const attrDeptError = errText(form.formState.errors, "attrDepartment");
+  const attrTitleError = errText(form.formState.errors, "attrTitle");
 
   useEffect(() => {
     const cfg = query.data?.config;
     if (!cfg) {
       return;
     }
-    setForm({
+    form.reset({
       name: cfg.name,
       host: cfg.host,
       port: cfg.port,
@@ -52,12 +88,8 @@ export function SystemConfigPage() {
     });
   }, [query.data]);
 
-  function patch<K extends keyof LdapForm>(key: K, value: LdapForm[K]) {
-    setForm((curr) => ({ ...curr, [key]: value }));
-  }
-
   const saveMutation = useMutation({
-    mutationFn: () => saveLdapConfig(form),
+    mutationFn: (input: LdapForm) => saveLdapConfig(input),
     onSuccess: async () => {
       toast.success("LDAP 配置已保存");
       await queryClient.invalidateQueries({ queryKey: ["ldap-config"] });
@@ -67,7 +99,7 @@ export function SystemConfigPage() {
     },
   });
   const testMutation = useMutation({
-    mutationFn: () => testLdapConfig(form),
+    mutationFn: (input: LdapForm) => testLdapConfig(input),
     onSuccess: async (data) => {
       toast[data.ok ? "success" : "error"](data.message || (data.ok ? "LDAP 连接测试成功" : "LDAP 连接测试失败"));
       await queryClient.invalidateQueries({ queryKey: ["ldap-config"] });
@@ -76,6 +108,9 @@ export function SystemConfigPage() {
       toast.error(error instanceof ApiError ? error.message : "测试失败");
     },
   });
+
+  const submitSave = form.handleSubmit((values) => saveMutation.mutate(values));
+  const submitTest = form.handleSubmit((values) => testMutation.mutate(values));
 
   return (
     <section className="page active" id="page-system-config">
@@ -103,46 +138,52 @@ export function SystemConfigPage() {
               </div>
               <div className="card-body">
                 <div className="form-grid">
-                  <div className="form-group full">
+                  <div className={groupClass(nameError, "full")}>
                     <label htmlFor="ldap-name">配置名称</label>
-                    <input id="ldap-name" value={form.name} onChange={(event) => patch("name", event.target.value)} />
+                    <input id="ldap-name" maxLength={LINE_MAX} {...form.register("name")} {...invalidProps("ldap-name", nameError)} />
+                    <FieldError id="ldap-name-error">{nameError}</FieldError>
                   </div>
-                  <div className="form-group">
+                  <div className={groupClass(hostError)}>
                     <label htmlFor="ldap-host">
                       主机 <span className="req">*</span>
                     </label>
-                    <input id="ldap-host" value={form.host} placeholder="ldap.example.com" onChange={(event) => patch("host", event.target.value)} />
+                    <input id="ldap-host" placeholder="ldap.example.com" maxLength={LINE_MAX} {...form.register("host")} {...invalidProps("ldap-host", hostError)} />
+                    <FieldError id="ldap-host-error">{hostError}</FieldError>
                   </div>
-                  <div className="form-group">
+                  <div className={groupClass(portError)}>
                     <label htmlFor="ldap-port">
                       端口 <span className="req">*</span>
                     </label>
-                    <input id="ldap-port" type="number" min={1} max={65535} value={form.port} onChange={(event) => patch("port", Number(event.target.value) || 0)} />
+                    <input id="ldap-port" type="number" min={1} max={65535} {...form.register("port", { valueAsNumber: true })} {...invalidProps("ldap-port", portError)} />
+                    <FieldError id="ldap-port-error">{portError}</FieldError>
                   </div>
                   <div className="form-group full">
                     <label className="checkbox-inline">
-                      <input type="checkbox" checked={form.useTls} onChange={(event) => patch("useTls", event.target.checked)} /> 使用 TLS / LDAPS
+                      <input type="checkbox" {...form.register("useTls")} /> 使用 TLS / LDAPS
                     </label>
                   </div>
-                  <div className="form-group full">
+                  <div className={groupClass(baseDnError, "full")}>
                     <label htmlFor="ldap-base-dn">
                       Base DN <span className="req">*</span>
                     </label>
-                    <input id="ldap-base-dn" className="mono" value={form.baseDn} onChange={(event) => patch("baseDn", event.target.value)} />
+                    <input id="ldap-base-dn" className="mono" maxLength={LINE_MAX} {...form.register("baseDn")} {...invalidProps("ldap-base-dn", baseDnError)} />
+                    <FieldError id="ldap-base-dn-error">{baseDnError}</FieldError>
                   </div>
-                  <div className="form-group full">
+                  <div className={groupClass(bindDnError, "full")}>
                     <label htmlFor="ldap-bind-dn">
                       Bind DN <span className="req">*</span>
                     </label>
-                    <input id="ldap-bind-dn" className="mono" value={form.bindDn} onChange={(event) => patch("bindDn", event.target.value)} />
+                    <input id="ldap-bind-dn" className="mono" maxLength={LINE_MAX} {...form.register("bindDn")} {...invalidProps("ldap-bind-dn", bindDnError)} />
+                    <FieldError id="ldap-bind-dn-error">{bindDnError}</FieldError>
                   </div>
-                  <div className="form-group full">
+                  <div className={groupClass(bindPwdError, "full")}>
                     <label htmlFor="ldap-bind-pwd">Bind 密码</label>
-                    <input id="ldap-bind-pwd" type="password" value={form.bindPassword} placeholder="留空则不修改" onChange={(event) => patch("bindPassword", event.target.value)} />
+                    <input id="ldap-bind-pwd" type="password" placeholder="留空则不修改" maxLength={LINE_MAX} {...form.register("bindPassword")} {...invalidProps("ldap-bind-pwd", bindPwdError)} />
+                    <FieldError id="ldap-bind-pwd-error">{bindPwdError}</FieldError>
                   </div>
                   <div className="form-group">
                     <label htmlFor="ldap-timeout">超时（秒）</label>
-                    <input id="ldap-timeout" type="number" min={1} max={120} value={form.timeoutSec} onChange={(event) => patch("timeoutSec", Number(event.target.value) || 10)} />
+                    <input id="ldap-timeout" type="number" min={1} max={120} {...form.register("timeoutSec", { valueAsNumber: true })} />
                   </div>
                 </div>
               </div>
@@ -153,43 +194,50 @@ export function SystemConfigPage() {
               </div>
               <div className="card-body">
                 <div className="form-grid">
-                  <div className="form-group full">
+                  <div className={groupClass(userFilterError, "full")}>
                     <label htmlFor="ldap-user-filter">用户认证 Filter</label>
-                    <input id="ldap-user-filter" className="mono" value={form.userFilter} onChange={(event) => patch("userFilter", event.target.value)} />
+                    <input id="ldap-user-filter" className="mono" maxLength={LINE_MAX} {...form.register("userFilter")} {...invalidProps("ldap-user-filter", userFilterError)} />
+                    <FieldError id="ldap-user-filter-error">{userFilterError}</FieldError>
                   </div>
-                  <div className="form-group full">
+                  <div className={groupClass(searchFilterError, "full")}>
                     <label htmlFor="ldap-search-filter">目录搜索 Filter</label>
-                    <input id="ldap-search-filter" className="mono" value={form.searchFilter} onChange={(event) => patch("searchFilter", event.target.value)} />
+                    <input id="ldap-search-filter" className="mono" maxLength={LINE_MAX} {...form.register("searchFilter")} {...invalidProps("ldap-search-filter", searchFilterError)} />
+                    <FieldError id="ldap-search-filter-error">{searchFilterError}</FieldError>
                   </div>
-                  <div className="form-group">
+                  <div className={groupClass(attrUserError)}>
                     <label htmlFor="ldap-attr-user">账号属性</label>
-                    <input id="ldap-attr-user" className="mono" value={form.attrUsername} onChange={(event) => patch("attrUsername", event.target.value)} />
+                    <input id="ldap-attr-user" className="mono" maxLength={LINE_MAX} {...form.register("attrUsername")} {...invalidProps("ldap-attr-user", attrUserError)} />
+                    <FieldError id="ldap-attr-user-error">{attrUserError}</FieldError>
                   </div>
-                  <div className="form-group">
+                  <div className={groupClass(attrNameError)}>
                     <label htmlFor="ldap-attr-name">姓名属性</label>
-                    <input id="ldap-attr-name" className="mono" value={form.attrName} onChange={(event) => patch("attrName", event.target.value)} />
+                    <input id="ldap-attr-name" className="mono" maxLength={LINE_MAX} {...form.register("attrName")} {...invalidProps("ldap-attr-name", attrNameError)} />
+                    <FieldError id="ldap-attr-name-error">{attrNameError}</FieldError>
                   </div>
-                  <div className="form-group">
+                  <div className={groupClass(attrEmailError)}>
                     <label htmlFor="ldap-attr-email">邮箱属性</label>
-                    <input id="ldap-attr-email" className="mono" value={form.attrEmail} onChange={(event) => patch("attrEmail", event.target.value)} />
+                    <input id="ldap-attr-email" className="mono" maxLength={LINE_MAX} {...form.register("attrEmail")} {...invalidProps("ldap-attr-email", attrEmailError)} />
+                    <FieldError id="ldap-attr-email-error">{attrEmailError}</FieldError>
                   </div>
-                  <div className="form-group">
+                  <div className={groupClass(attrDeptError)}>
                     <label htmlFor="ldap-attr-dept">部门属性</label>
-                    <input id="ldap-attr-dept" className="mono" value={form.attrDepartment} onChange={(event) => patch("attrDepartment", event.target.value)} />
+                    <input id="ldap-attr-dept" className="mono" maxLength={LINE_MAX} {...form.register("attrDepartment")} {...invalidProps("ldap-attr-dept", attrDeptError)} />
+                    <FieldError id="ldap-attr-dept-error">{attrDeptError}</FieldError>
                   </div>
-                  <div className="form-group full">
+                  <div className={groupClass(attrTitleError, "full")}>
                     <label htmlFor="ldap-attr-title">职位属性</label>
-                    <input id="ldap-attr-title" className="mono" value={form.attrTitle} onChange={(event) => patch("attrTitle", event.target.value)} />
+                    <input id="ldap-attr-title" className="mono" maxLength={LINE_MAX} {...form.register("attrTitle")} {...invalidProps("ldap-attr-title", attrTitleError)} />
+                    <FieldError id="ldap-attr-title-error">{attrTitleError}</FieldError>
                   </div>
                 </div>
               </div>
             </div>
           </div>
           <div className="sys-config-tab-actions">
-            <Button variant="secondary" onClick={() => testMutation.mutate()} disabled={testMutation.isPending}>
+            <Button variant="secondary" onClick={submitTest} disabled={testMutation.isPending}>
               测试连接
             </Button>
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            <Button onClick={submitSave} disabled={saveMutation.isPending}>
               保存配置
             </Button>
           </div>

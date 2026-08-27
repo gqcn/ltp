@@ -4,14 +4,20 @@
 web.deps:
 	@cd $(FRONTEND_DIR) && pnpm install
 
-## dev: 重启后端与前端
+## dev: 重启后端与前端，并以 make status 展示状态
 dev: stop ldap.up web.deps
 	@mkdir -p $(TEMP_DIR)/bin $(PID_DIR)
 	@cd $(BACKEND_DIR) && go build -o $(BACKEND_BIN) .
 	@cd $(BACKEND_DIR) && nohup $(BACKEND_BIN) >$(BACKEND_LOG) 2>&1 & echo $$! > $(BACKEND_PID)
 	@cd $(FRONTEND_DIR) && nohup pnpm dev >$(FRONTEND_LOG) 2>&1 & echo $$! > $(FRONTEND_PID)
-	@echo "Backend  http://127.0.0.1:$(BACKEND_PORT)"
-	@echo "Frontend http://127.0.0.1:$(FRONTEND_PORT)"
+	@i=0; \
+	until [ $$i -ge 40 ] \
+		|| { curl -sf --connect-timeout 1 --max-time 2 "http://127.0.0.1:$(BACKEND_PORT)/api/health" >/dev/null 2>&1 \
+			&& curl -sf --connect-timeout 1 --max-time 2 "http://127.0.0.1:$(FRONTEND_PORT)/" >/dev/null 2>&1; }; do \
+		sleep 0.25; \
+		i=$$((i + 1)); \
+	done
+	@$(MAKE) --no-print-directory status
 
 ## stop: 停止后端与前端（含占端口的残留进程；不停 PostgreSQL / LDAP）
 stop:

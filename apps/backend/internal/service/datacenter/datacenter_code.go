@@ -27,4 +27,10 @@ var (
 		"Datacenter code already exists",
 		gcode.CodeInvalidParameter,
 	)
+	// CodeInUse 表示仍有节点、队列或集群关联，拒绝删除。
+	CodeInUse = bizerr.MustDefine(
+		"DATACENTER_IN_USE",
+		"当前关联 {nodes} 节点、{queues} 队列、{clusters} 集群，无法删除",
+		gcode.CodeValidationFailed,
+	)
 )

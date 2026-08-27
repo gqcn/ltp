@@ -41,11 +41,33 @@ type Item struct {
 	CreatedAt   int64  // 创建时间
 }
 
+// NameRef 是团队名称投影。
+type NameRef struct {
+	ID   int64  // 主键
+	Name string // 名称
+}
+
+// QueueRef 是已关联队列投影。
+type QueueRef struct {
+	ID             int64  // 队列 ID
+	Name           string // 标识
+	DisplayName    string // 显示名
+	DatacenterCode string // 数据中心
+	Enabled        bool   // 是否启用
+	State          string // Volcano 状态
+}
+
+// QueueSource 按团队批量返回关联队列。
+type QueueSource interface {
+	ListByTeamIDs(ctx context.Context, teamIDs []int64) (map[int64][]QueueRef, error)
+}
+
 // Detail 是团队详情。
 type Detail struct {
-	Item               // 列表投影
-	Members   []Member // 成员列表
-	UpdatedAt int64    // 更新时间
+	Item                 // 列表投影
+	Members   []Member   // 成员列表
+	Queues    []QueueRef // 关联队列
+	UpdatedAt int64      // 更新时间
 }
 
 // ListInput 是列表查询条件。
@@ -90,12 +112,17 @@ type Service interface {
 	AddMember(ctx context.Context, teamID int64, userID int64) error
 	// RemoveMember 解除成员关系。
 	RemoveMember(ctx context.Context, teamID int64, userID int64) error
+	// MapByIDs 按 ID 批量返回团队名称，缺失键不出现。
+	MapByIDs(ctx context.Context, ids []int64) (map[int64]NameRef, error)
+	// BindQueues 注入队列投影，供详情展示关联队列。
+	BindQueues(queues QueueSource)
 }
 
 var _ Service = (*serviceImpl)(nil)
 
 type serviceImpl struct {
 	userSvc user.Service // 用户服务
+	queues  QueueSource  // 可选队列投影
 }
 
 // New 构造团队服务。userSvc 不得为空。
@@ -104,4 +131,9 @@ func New(userSvc user.Service) (Service, error) {
 		return nil, gerror.New("user service is required")
 	}
 	return &serviceImpl{userSvc: userSvc}, nil
+}
+
+// BindQueues 注入队列投影来源。
+func (s *serviceImpl) BindQueues(queues QueueSource) {
+	s.queues = queues
 }

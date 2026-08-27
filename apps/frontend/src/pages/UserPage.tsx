@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import {
   addUsersFromLdap,
   listUsers,
@@ -13,7 +14,10 @@ import { listRoles } from "@/api/role";
 import { getLdapConfig } from "@/api/system";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
+import { ListBody } from "@/components/ListLoading";
+import { FieldError } from "@/components/Field";
 import { Modal } from "@/components/Modal";
+import { firstZodMessage, focusField, zRequired } from "@/lib/form";
 import { Pagination } from "@/components/Pagination";
 import { formatTime } from "@/lib/format";
 import { roleMenuLabel } from "@/lib/access";
@@ -249,14 +253,29 @@ export function UserPage() {
           </div>
         ) : null}
         <div className="card-body flush">
-          {listQuery.isError ? (
-            <div className="empty-state">用户列表加载失败</div>
-          ) : rows.length === 0 ? (
-            <div className="empty-state">暂无平台用户，请点击「从 LDAP 添加」</div>
-          ) : (
+          <ListBody
+            loading={listQuery.isLoading}
+            error={listQuery.isError}
+            empty={rows.length === 0}
+            loadingLabel="正在加载用户…"
+            errorLabel="用户列表加载失败"
+            emptyLabel="暂无平台用户，请点击「从 LDAP 添加」"
+          >
             <>
               <div className="table-wrap">
                 <table className="table">
+                  <colgroup>
+                    <col className="col-check" />
+                    <col className="col-user" />
+                    <col className="col-account" />
+                    <col className="col-email" />
+                    <col className="col-dept" />
+                    <col className="col-role" />
+                    <col className="col-teams" />
+                    <col className="col-status" />
+                    <col className="col-login" />
+                    <col className="col-actions" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th className="th-check">
@@ -314,7 +333,7 @@ export function UserPage() {
                               : <span className="text-muted">未加入团队</span>}
                           </td>
                           <td>{item.enabled ? <span className="badge badge-healthy">启用</span> : <span className="badge badge-cancelled">停用</span>}</td>
-                          <td className="mono text-muted">{item.lastLoginAt ? formatTime(item.lastLoginAt) : "—"}</td>
+                          <td className="mono text-muted">{item.lastLoginAt ? formatTime(item.lastLoginAt).slice(0, 16) : "—"}</td>
                           <td className="td-actions">
                             <div className="job-actions job-actions-stack">
                               <div className="job-actions-row">
@@ -346,7 +365,7 @@ export function UserPage() {
               </div>
               <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={setPageSize} />
             </>
-          )}
+          </ListBody>
         </div>
       </div>
 
@@ -360,8 +379,10 @@ export function UserPage() {
         onClose={() => setLdapOpen(false)}
         onConfirm={() => {
           setLdapError("");
-          if (!ldapPicked.length) {
-            setLdapError("请至少勾选一名 LDAP 用户");
+          const picked = z.array(zRequired("请至少勾选一名 LDAP 用户")).min(1, "请至少勾选一名 LDAP 用户").safeParse(ldapPicked);
+          if (!picked.success) {
+            setLdapError(firstZodMessage(picked.error));
+            focusField("ldap-user-search");
             return;
           }
           addMutation.mutate();
@@ -397,11 +418,21 @@ export function UserPage() {
             {ldapRoleHint ? `可见菜单：${ldapRoleHint}` : ""}
           </p>
         </div>
-        <div className="form-group" style={{ marginBottom: 12 }}>
+        <div className={ldapError ? "form-group is-invalid" : "form-group"} style={{ marginBottom: 12 }}>
           <label htmlFor="ldap-user-search">检索 LDAP</label>
           <div className="search-box" style={{ maxWidth: "none" }}>
             <span className="search-icon">⌕</span>
-            <input id="ldap-user-search" value={ldapKeyword} placeholder="姓名 / 账号 / 邮箱 / 部门..." onChange={(event) => setLdapKeyword(event.target.value)} />
+            <input
+              id="ldap-user-search"
+              value={ldapKeyword}
+              placeholder="姓名 / 账号 / 邮箱 / 部门..."
+              aria-invalid={ldapError ? true : undefined}
+              aria-describedby={ldapError ? "ldap-user-search-error" : undefined}
+              onChange={(event) => {
+                setLdapKeyword(event.target.value);
+                setLdapError("");
+              }}
+            />
           </div>
         </div>
         <div className="ldap-user-results">
@@ -437,11 +468,7 @@ export function UserPage() {
             ))
           )}
         </div>
-        {ldapError ? (
-          <div className="login-error" style={{ marginTop: 8 }} role="alert">
-            {ldapError}
-          </div>
-        ) : null}
+        <FieldError id="ldap-user-search-error">{ldapError}</FieldError>
       </Modal>
 
       <Modal open={roleOpen} title={roleTargets.length > 1 ? "批量角色授权" : "角色授权"} modalClassName="modal-user-role" confirmText={roleTargets.length > 1 ? `保存授权（${roleTargets.length} 人）` : "保存授权"} onClose={() => setRoleOpen(false)} onConfirm={() => roleMutation.mutate()}>

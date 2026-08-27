@@ -1,11 +1,11 @@
-// TC002：校验数据中心创建、编辑、停用、删除，且不再出现内置默认数据中心。
+// TC002：校验数据中心创建、编辑、删除，且不再出现内置默认数据中心与启停按钮。
 
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { loginAsAdmin } from "../login";
 
-test("TC002 datacenter create edit disable delete without builtin default", async ({ page }) => {
+test("TC002 datacenter create edit delete without builtin default or status toggle", async ({ page }) => {
   const code = `e2e${Date.now()}`;
   await loginAsAdmin(page);
   await expect(page.getByRole("heading", { name: "数据中心管理" })).toBeVisible();
@@ -31,12 +31,18 @@ test("TC002 datacenter create edit disable delete without builtin default", asyn
   await page.getByRole("dialog").getByLabel("显示名称").fill("E2E 数据中心-改");
   await page.getByRole("button", { name: "保存" }).click();
   await expect(page.locator("table").getByText("E2E 数据中心-改", { exact: true })).toBeVisible();
-
-  await created.getByRole("button", { name: "停用" }).click();
-  await page.getByRole("button", { name: "确认停用" }).click();
-  await expect(created.getByText("停用", { exact: true })).toBeVisible();
+  await expect(created.getByRole("button", { name: "停用" })).toHaveCount(0);
+  await expect(created.getByRole("button", { name: "启用" })).toHaveCount(0);
+  await expect(page.getByText("已停用", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("全部状态")).toHaveCount(0);
+  await expect(page.getByText("数据中心总数")).toHaveCount(0);
+  await expect(page.getByPlaceholder("搜索标识 / 名称 / 区域...")).toHaveCount(0);
 
   await created.getByRole("button", { name: "删除" }).click();
-  await page.getByRole("button", { name: "确认删除" }).click();
+  const confirm = page.getByRole("dialog");
+  await expect(confirm.getByRole("heading", { name: "确认删除数据中心" })).toBeVisible();
+  await expect(confirm.getByText("当前无节点、队列或集群引用该数据中心。删除后不可恢复。")).toBeVisible();
+  await expect(confirm.getByRole("button", { name: "确认删除" })).toBeVisible();
+  await confirm.getByRole("button", { name: "确认删除" }).click();
   await expect(page.getByRole("cell", { name: code, exact: true })).toHaveCount(0);
 });

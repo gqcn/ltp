@@ -1,0 +1,13 @@
+[Unit]
+Description=LTP mock nvidia.com/gpu capacity keeper
+After=kubelet.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=3
+Environment=KUBECONFIG=/etc/kubernetes/admin.conf
+ExecStart=/usr/local/bin/ltp-mock-gpu-keeper.sh
+
+[Install]
+WantedBy=multi-user.target

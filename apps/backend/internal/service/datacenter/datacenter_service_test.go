@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -67,16 +68,15 @@ func TestDatacenterCRUD(t *testing.T) {
 	if err := svc.Update(ctx, UpdateInput{ID: id, Name: "测试数据中心-改", ShortName: "测改", Region: "新疆", Color: "#a78bfa"}); err != nil {
 		t.Fatalf("update: %v", err)
 	}
-	if err := svc.UpdateStatus(ctx, id, false); err != nil {
-		t.Fatalf("disable: %v", err)
-	}
-	enabled := false
-	out, err := svc.List(ctx, ListInput{PageNum: 1, PageSize: 10, Keyword: code, Enabled: &enabled})
+	out, err := svc.List(ctx, ListInput{PageNum: 1, PageSize: 10, Keyword: code})
 	if err != nil {
-		t.Fatalf("list disabled: %v", err)
+		t.Fatalf("list: %v", err)
 	}
 	if out.Total != 1 {
-		t.Fatalf("expected 1 disabled row, got %d", out.Total)
+		t.Fatalf("expected 1 row, got %d", out.Total)
+	}
+	if !out.List[0].Enabled {
+		t.Fatal("datacenter must stay enabled; status updates are removed")
 	}
 
 	list, err := svc.List(ctx, ListInput{PageNum: 1, PageSize: 50, Keyword: "默认数据中心"})
@@ -94,6 +94,68 @@ func TestDatacenterCRUD(t *testing.T) {
 	}
 	if _, err := svc.Get(ctx, id); !bizerr.Is(err, CodeNotFound) {
 		t.Fatalf("expected not found after delete, got %v", err)
+	}
+}
+
+// stubUsageCounter 按标识返回预设关联计数，用于删除占用门禁测试。
+type stubUsageCounter struct {
+	stats map[string]UsageStats // 标识到关联计数
+}
+
+// CountByCodes 返回预设计数；缺失标识视为零值。
+func (s stubUsageCounter) CountByCodes(_ context.Context, codes []string) (map[string]UsageStats, error) {
+	out := make(map[string]UsageStats, len(codes))
+	for _, code := range codes {
+		out[code] = s.stats[code]
+	}
+	return out, nil
+}
+
+func TestDatacenterDeleteRejectedWhenInUse(t *testing.T) {
+	if os.Getenv("LTP_SKIP_DB_TEST") == "1" {
+		t.Skip("database tests skipped")
+	}
+	if err := os.Chdir(findRepoRoot(t)); err != nil {
+		t.Fatal(err)
+	}
+	ctx := gctx.New()
+	if err := g.DB().PingMaster(); err != nil {
+		t.Skipf("postgres unavailable: %v", err)
+	}
+
+	code := "t-" + time.Now().Format("150405.000")
+	code = normalizeCodeForTest(code)
+	createSvc, err := New(NewZeroUsageCounter())
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := createSvc.Create(ctx, CreateInput{
+		Code:      code,
+		Name:      "占用数据中心",
+		ShortName: "占用",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = createSvc.Delete(context.Background(), id)
+	})
+
+	svc, err := New(stubUsageCounter{stats: map[string]UsageStats{
+		code: {Nodes: 2, Queues: 1, Clusters: 1},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = svc.Delete(ctx, id)
+	if !bizerr.Is(err, CodeInUse) {
+		t.Fatalf("expected in-use, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "2 节点") || !strings.Contains(err.Error(), "1 队列") {
+		t.Fatalf("error should include usage counts, got %v", err)
+	}
+	if _, err := createSvc.Get(ctx, id); err != nil {
+		t.Fatalf("row must remain after rejected delete: %v", err)
 	}
 }
 

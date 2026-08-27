@@ -17,7 +17,8 @@ test("TC002 teams ldap config and role menus", async ({ page }) => {
   await dialog.getByRole("button", { name: /算法工程师/ }).first().click();
   await dialog.getByRole("button", { name: "创建团队" }).click();
   await expect(page.locator(".rp-list-title", { hasText: name })).toBeVisible();
-  await expect(page.getByText("关联队列")).toHaveCount(0);
+  await expect(page.getByText("关联队列")).toBeVisible();
+  await expect(page.getByText("尚未关联资源队列")).toBeVisible();
 
   await page.getByRole("link", { name: "系统配置" }).click();
   await expect(page.getByRole("heading", { name: "系统配置" })).toBeVisible();

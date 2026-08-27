@@ -1,4 +1,4 @@
-.PHONY: db.up db.down db.init db.mock dao ctrl ldap.up ldap.down
+.PHONY: db.up db.down db.init db.mock dao ctrl ldap.up ldap.down kind.up kind.down
 
 ## db.up: 等待本机 PostgreSQL 就绪，并确保存在数据库 ltp
 db.up:
@@ -27,6 +27,14 @@ ldap.up:
 ## ldap.down: 停止本地模拟 LDAP
 ldap.down:
 	@docker compose -f $(ROOT_DIR)/hack/deploy/docker-compose.yml stop ldap
+
+## kind.up: 创建 Kubernetes 1.27 的 kind 集群（含模拟 GPU 工作节点）并安装 Volcano 1.13
+kind.up:
+	@bash "$(ROOT_DIR)/hack/deploy/kind/up.sh"
+
+## kind.down: 删除本地 kind 集群
+kind.down:
+	@bash "$(ROOT_DIR)/hack/deploy/kind/down.sh"
 
 ## dao: 生成 DAO/DO/Entity
 dao:
