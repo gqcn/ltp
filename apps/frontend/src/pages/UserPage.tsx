@@ -288,13 +288,14 @@ export function UserPage() {
                       <th>角色</th>
                       <th>所属团队</th>
                       <th>状态</th>
-                      <th>最近登录</th>
+                      <th className="th-last-login">最近登录</th>
                       <th className="th-actions">操作</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((item) => {
                       const checked = selected.includes(item.id);
+                      const lastLogin = item.lastLoginAt ? formatTime(item.lastLoginAt) : "";
                       return (
                         <tr key={item.id} className={checked ? "is-row-selected" : undefined}>
                           <td className="td-check">
@@ -333,7 +334,16 @@ export function UserPage() {
                               : <span className="text-muted">未加入团队</span>}
                           </td>
                           <td>{item.enabled ? <span className="badge badge-healthy">启用</span> : <span className="badge badge-cancelled">停用</span>}</td>
-                          <td className="mono text-muted">{item.lastLoginAt ? formatTime(item.lastLoginAt).slice(0, 16) : "—"}</td>
+                          <td className="mono text-muted td-last-login">
+                            {lastLogin ? (
+                              <>
+                                <div>{lastLogin.slice(0, 10)}</div>
+                                <div>{lastLogin.slice(11, 16)}</div>
+                              </>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
                           <td className="td-actions">
                             <div className="job-actions job-actions-stack">
                               <div className="job-actions-row">

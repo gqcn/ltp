@@ -65,6 +65,7 @@ type ListInput struct {
 	Keyword        string // 关键词
 	DatacenterCode string // 数据中心
 	GPUType        string // 卡型号
+	Enabled        *bool  // 启停筛选，nil 表示全部
 }
 
 // ListOutput 是分页结果。

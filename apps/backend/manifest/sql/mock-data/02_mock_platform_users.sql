@@ -35,3 +35,14 @@ WHERE NOT EXISTS (SELECT 1 FROM sys_user WHERE username = 'wangzhendong' AND del
 INSERT INTO sys_user (username, password, nickname, email, department, title, role_code, source, status, created_at, updated_at)
 SELECT 'xiongyunchuan', '', '熊云川', 'xiongyunchuan@msxf.com', '人工智能中心 / NLP', '算法工程师', 'algo', 'ldap', 0, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM sys_user WHERE username = 'xiongyunchuan' AND deleted_at IS NULL);
+
+-- 为尚未登录的启用 LDAP 用户回填演示用最近登录时间，便于列表展示列宽；已有登录时间与停用账号不覆盖。
+UPDATE sys_user
+SET last_login_at = NOW()
+    - ((id % 6) * INTERVAL '1 day')
+    - ((id % 8) * INTERVAL '50 minutes'),
+    updated_at = NOW()
+WHERE source = 'ldap'
+  AND status = 1
+  AND last_login_at IS NULL
+  AND deleted_at IS NULL;

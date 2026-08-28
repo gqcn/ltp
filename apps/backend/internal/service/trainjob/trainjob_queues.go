@@ -37,13 +37,11 @@ func (s *serviceImpl) ListMyQueues(ctx context.Context, actor Actor, clusterID i
 	if err != nil {
 		return nil, err
 	}
-	monthJobs, err := s.monthJobsByQueue(ctx, clusterID, queueIDs)
+	hoursByQueue, err := s.GPUHoursMonthByQueueIDs(ctx, clusterID, queueIDs)
 	if err != nil {
 		return nil, err
 	}
 	out := &MyQueuesOutput{List: make([]MyQueue, 0, len(queues))}
-	now := time.Now()
-	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	for _, q := range queues {
 		if q == nil {
 			continue
@@ -66,10 +64,7 @@ func (s *serviceImpl) ListMyQueues(ctx context.Context, actor Actor, clusterID i
 				runningHours += j.GPUHours
 			}
 		}
-		monthHours := 0.0
-		for _, row := range monthJobs[q.ID] {
-			monthHours += overlapGPUHours(row, monthStart, now)
-		}
+		monthHours := hoursByQueue[q.ID]
 		item := MyQueue{
 			ID:             q.ID,
 			Name:           q.Name,
@@ -172,6 +167,31 @@ func (s *serviceImpl) monthJobsByQueue(ctx context.Context, clusterID int64, que
 			continue
 		}
 		out[row.QueueId] = append(out[row.QueueId], row)
+	}
+	return out, nil
+}
+
+// GPUHoursMonthByQueueIDs 按队列批量返回本月卡时。
+func (s *serviceImpl) GPUHoursMonthByQueueIDs(ctx context.Context, clusterID int64, queueIDs []int64) (map[int64]float64, error) {
+	out := make(map[int64]float64, len(queueIDs))
+	for _, id := range queueIDs {
+		out[id] = 0
+	}
+	if clusterID <= 0 || len(queueIDs) == 0 {
+		return out, nil
+	}
+	jobs, err := s.monthJobsByQueue(ctx, clusterID, queueIDs)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	for id, rows := range jobs {
+		sum := 0.0
+		for _, row := range rows {
+			sum += overlapGPUHours(row, monthStart, now)
+		}
+		out[id] = sum
 	}
 	return out, nil
 }

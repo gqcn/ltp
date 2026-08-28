@@ -160,3 +160,10 @@ export function configFileLang(path: string) {
   if (/\.(sh|bash)$/i.test(path)) return "SHELL";
   return "TEXT";
 }
+
+export function formatBytes(n: number) {
+  const v = Number(n) || 0;
+  if (v < 1024) return `${v} B`;
+  if (v < 1024 * 1024) return `${(v / 1024).toFixed(1)} KB`;
+  return `${(v / (1024 * 1024)).toFixed(2)} MB`;
+}

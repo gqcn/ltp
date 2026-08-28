@@ -398,6 +398,117 @@ func TestQueueResyncRecreatesMissingCR(t *testing.T) {
 	}
 }
 
+func TestListFiltersByEnabled(t *testing.T) {
+	if os.Getenv("LTP_SKIP_DB_TEST") == "1" {
+		t.Skip("database tests skipped")
+	}
+	if err := os.Chdir(findRepoRoot(t)); err != nil {
+		t.Fatal(err)
+	}
+	ctx := gctx.New()
+	code := "qdc-" + time.Now().Format("150405")
+	fake := &kube.Fake{
+		Queues: map[string]kube.QueueSnapshot{},
+		Nodes: []kube.NodeSnapshot{{
+			Name:          "gpu-node-h200",
+			Ready:         true,
+			Schedulable:   true,
+			Labels:        map[string]string{consts.LabelKeyDatacenter: code, consts.LabelKeyGPUType: "NVIDIA-H200"},
+			GPUTotal:      8,
+			CPUTotalMilli: 8000,
+			MemTotalBytes: 16 << 30,
+		}},
+	}
+	clusterSvc, err := cluster.New(kube.NewFactoryWith(func(context.Context, []byte) (kube.ClusterClient, error) {
+		return fake, nil
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dcSvc, err := datacenter.New(datacenter.NewZeroUsageCounter())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dcID, err := dcSvc.Create(ctx, datacenter.CreateInput{Code: code, Name: "筛选测试", ShortName: "筛"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = dcSvc.Delete(context.Background(), dcID) })
+	roleSvc := role.New()
+	userSvc, err := user.New(stubLDAP{}, roleSvc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	teamSvc, err := team.New(userSvc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	users, err := userSvc.List(ctx, user.ListInput{PageNum: 1, PageSize: 1, Enabled: boolPtr(true)})
+	if err != nil || len(users.List) == 0 {
+		t.Skip("no ldap users")
+	}
+	teamID, err := teamSvc.Create(ctx, team.CreateInput{Name: "QFlt-" + time.Now().Format("150405.000"), OwnerUserID: users.List[0].ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = teamSvc.RemoveMember(context.Background(), teamID, users.List[0].ID) })
+	clsID, err := clusterSvc.Create(ctx, cluster.CreateInput{DisplayName: "QFltCls-" + time.Now().Format("150405.000"), Kubeconfig: "kind: Config\n"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = clusterSvc.Delete(context.Background(), clsID) })
+	svc, err := New(clusterSvc, dcSvc, teamSvc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stamp := time.Now().Format("150405")
+	openName := "stf-" + stamp + "-on"
+	closedName := "stf-" + stamp + "-off"
+	openID, err := svc.Create(ctx, WriteInput{
+		ClusterID: clsID, Name: openName, DisplayName: "启用队列", DatacenterCode: code,
+		GPUType: "NVIDIA-H200", GPUQuota: 1, TeamIDs: []int64{teamID},
+	})
+	if err != nil {
+		t.Fatalf("create open: %v", err)
+	}
+	t.Cleanup(func() { _ = svc.Delete(context.Background(), openID) })
+	closedID, err := svc.Create(ctx, WriteInput{
+		ClusterID: clsID, Name: closedName, DisplayName: "禁用队列", DatacenterCode: code,
+		GPUType: "NVIDIA-H200", GPUQuota: 1, TeamIDs: []int64{teamID},
+	})
+	if err != nil {
+		t.Fatalf("create closed: %v", err)
+	}
+	t.Cleanup(func() { _ = svc.Delete(context.Background(), closedID) })
+	if err := svc.UpdateStatus(ctx, closedID, false); err != nil {
+		t.Fatalf("disable: %v", err)
+	}
+	keyword := "stf-" + stamp
+	enabled := true
+	openList, err := svc.List(ctx, ListInput{ClusterID: clsID, PageNum: 1, PageSize: 10, Keyword: keyword, Enabled: &enabled})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if openList.Total != 1 || len(openList.List) != 1 || openList.List[0].Name != openName || !openList.List[0].Enabled {
+		t.Fatalf("enabled filter=%+v", openList)
+	}
+	disabled := false
+	closedList, err := svc.List(ctx, ListInput{ClusterID: clsID, PageNum: 1, PageSize: 10, Keyword: keyword, Enabled: &disabled})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if closedList.Total != 1 || len(closedList.List) != 1 || closedList.List[0].Name != closedName || closedList.List[0].Enabled {
+		t.Fatalf("disabled filter=%+v", closedList)
+	}
+	all, err := svc.List(ctx, ListInput{ClusterID: clsID, PageNum: 1, PageSize: 10, Keyword: keyword})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if all.Total != 2 {
+		t.Fatalf("all total=%d", all.Total)
+	}
+}
+
 type stubLDAP struct{}
 
 func (stubLDAP) GetConfig(context.Context) (*ldap.View, error) { return &ldap.View{}, nil }

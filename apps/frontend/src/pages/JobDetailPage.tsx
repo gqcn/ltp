@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
-import { cancelJob, getJob, getJobLogs, listJobAlerts, listJobPods } from "@/api/training";
+import { cancelJob, getJob, getJobLogs, listJobAlerts, listJobPods, type EnvEntry } from "@/api/training";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
 import { ListLoading } from "@/components/ListLoading";
 import { Modal } from "@/components/Modal";
+import { DcBadge } from "@/components/UsageCell";
 import { formatDuration, formatTime } from "@/lib/format";
-import { formatMemGi, JobPriorityBadge, JobStatusBadge, isActiveJob } from "@/lib/job";
+import { configFileLang, formatBytes, formatMemGi, JobPriorityBadge, JobStatusBadge, isActiveJob } from "@/lib/job";
 import { toast } from "@/lib/toast";
 
 const tabs = [
@@ -43,17 +44,31 @@ export function JobDetailPage() {
   const [podName, setPodName] = useState("");
   const [stopOpen, setStopOpen] = useState(false);
   const [openFile, setOpenFile] = useState("");
+  const [follow, setFollow] = useState(true);
+  const logRef = useRef<HTMLDivElement>(null);
 
   const jobQuery = useQuery({ queryKey: ["training-job", jobId], queryFn: () => getJob(jobId), enabled: jobId > 0 });
   const podsQuery = useQuery({ queryKey: ["training-job-pods", jobId], queryFn: () => listJobPods(jobId), enabled: jobId > 0 && tab === "pods" });
   const alertsQuery = useQuery({ queryKey: ["training-job-alerts", jobId], queryFn: () => listJobAlerts(jobId), enabled: jobId > 0 });
-  const selectedPod = podName || podsQuery.data?.list[0]?.name || "";
+  const pods = podsQuery.data?.list ?? [];
+  const selectedPod = podName || pods[0]?.name || "";
+  const selected = pods.find((p) => p.name === selectedPod);
   const logsQuery = useQuery({
     queryKey: ["training-job-logs", jobId, selectedPod],
     queryFn: () => getJobLogs(jobId, selectedPod),
     enabled: tab === "pods" && Boolean(selectedPod),
+    refetchInterval: tab === "pods" && follow && Boolean(selectedPod) ? 3000 : false,
   });
   const job = jobQuery.data;
+  const nodeCount = useMemo(() => new Set(pods.map((p) => p.node).filter(Boolean)).size, [pods]);
+  const runningCount = pods.filter((p) => p.phase === "Running").length;
+  const logText = logsQuery.data?.content || "";
+
+  useEffect(() => {
+    if (!follow || tab !== "pods") return;
+    const el = logRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [follow, tab, logText]);
 
   const stopMutation = useMutation({
     mutationFn: () => cancelJob(jobId),
@@ -72,13 +87,20 @@ export function JobDetailPage() {
     return <section className="page active"><div className="empty-state">任务不存在</div></section>;
   }
 
+  const shortPod = selectedPod ? selectedPod.replace(`${job.name}-`, "") : "";
+  const logMeta = selected
+    ? [selectedPod, selected.role, `rank ${selected.index}`, selected.node || "—"].filter(Boolean).join(" · ")
+    : selectedPod || "—";
+
   return (
     <section className="page active" id="page-job-detail">
       <div className="detail-hero">
         <div className="detail-hero-top">
-          <div>
-            <h2>{job.name} <JobStatusBadge status={job.status} /></h2>
-            <div className="mono text-muted mt-8" style={{ fontSize: 12 }}>{job.id}</div>
+          <div className="job-detail-heading">
+            <h2>
+              <span className="job-detail-title">{job.name}</span>
+              <JobStatusBadge status={job.status} />
+            </h2>
             {job.failReason ? <div className="detail-fail-banner"><strong>失败原因</strong><span>{job.failReason}</span></div> : null}
           </div>
           <div className="page-actions">
@@ -102,7 +124,7 @@ export function JobDetailPage() {
         </div>
       </div>
       <div className="card">
-        <div className="tabs">
+        <div className="tabs" id="job-detail-tabs">
           {tabs.map((item) => (
             <div key={item.id} className={`tab ${tab === item.id ? "active" : ""}`} onClick={() => setTab(item.id)}>
               <TabIcon id={item.id} />
@@ -122,7 +144,7 @@ export function JobDetailPage() {
                   <div className="job-cfg-fact"><span className="k">团队</span><span className="v">{job.teamName}</span></div>
                   <div className="job-cfg-fact"><span className="k">队列</span><span className="v">{job.queueDisplayName}</span></div>
                   <div className="job-cfg-fact"><span className="k">优先级</span><span className="v"><JobPriorityBadge priority={job.priority} /></span></div>
-                  <div className="job-cfg-fact"><span className="k">数据中心</span><span className="v">{job.datacenterCode || "—"}</span></div>
+                  <div className="job-cfg-fact"><span className="k">数据中心</span><span className="v"><DcBadge code={job.datacenterCode} /></span></div>
                   <div className="job-cfg-fact"><span className="k">使用 IB</span><span className="v"><span className={`summary-yesno ${job.requireIb ? "is-yes" : "is-no"}`}>{job.requireIb ? "是" : "否"}</span></span></div>
                   <div className="job-cfg-fact is-span">
                     <span className="k">资源</span>
@@ -141,9 +163,9 @@ export function JobDetailPage() {
               </section>
               <section className="job-cfg-panel job-cfg-launch">
                 <div className="job-cfg-panel-head">启动命令</div>
-                <pre className="code-block is-hl" data-lang="shell">{job.command || "# 无启动命令"}</pre>
+                <pre className="code-block is-hl job-cfg-cmd" data-lang="shell">{highlightShell(job.command)}</pre>
                 <div className="job-cfg-panel-head job-cfg-subhead">环境变量</div>
-                <pre className="code-block is-hl" data-lang="env">{job.env?.length ? job.env.map((e) => `${e.key}=${e.value}`).join("\n") : "# 无额外环境变量"}</pre>
+                <pre className="code-block is-hl job-cfg-env" data-lang="env">{highlightEnv(job.env)}</pre>
               </section>
               <section className="job-cfg-panel">
                 <div className="job-cfg-panel-head">镜像地址</div>
@@ -155,20 +177,77 @@ export function JobDetailPage() {
               </section>
               <section className="job-cfg-panel job-cfg-span">
                 <div className="job-cfg-panel-head">配置挂载</div>
-                {job.mounts?.length ? job.mounts.map((m) => (
-                  <div key={`${m.setId}-${m.version}`} className="job-cfg-mount">
-                    <div className="job-cfg-mount-title"><strong>{m.displayName}</strong> <span className="mono text-muted">v{m.version}</span></div>
-                    <code className="job-cfg-mount-path">{m.mountPath}</code>
-                    {(m.files || []).map((f) => (
-                      <div key={f.path}>
-                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpenFile(openFile === f.path ? "" : f.path)}>{openFile === f.path ? "收起" : "展开"} {f.path}</button>
-                        {openFile === f.path ? <pre className="code-block">{f.content}</pre> : null}
+                {job.mounts?.length ? (
+                  <div className="job-cfg-mounts">
+                    {job.mounts.map((m) => (
+                      <div key={`${m.setId}-${m.version}`} className="job-cfg-mount">
+                        <div className="job-cfg-mount-title">
+                          <strong>{m.displayName}</strong>
+                          <span className="mono text-muted">v{m.version}</span>
+                        </div>
+                        <code className="job-cfg-mount-path" title={m.mountPath}>{m.mountPath}</code>
                       </div>
                     ))}
                   </div>
-                )) : <div className="job-cfg-empty">未挂载配置集 · 启动路径来自镜像或共享盘</div>}
+                ) : (
+                  <div className="job-cfg-empty">未挂载配置集 · 启动路径来自镜像或共享盘</div>
+                )}
               </section>
             </div>
+            {job.mounts?.length ? (
+              <div className="cfg-snapshot-list">
+                {job.mounts.map((m, idx) => (
+                  <div key={`${m.setId}-${m.version}-snap`} className="cfg-snapshot-card">
+                    <div className="cfg-snapshot-head">
+                      <h4>{m.displayName} <span className="mono text-muted">v{m.version}</span></h4>
+                      <div className="cfg-snapshot-meta">
+                        <span className="badge badge-info">configmap</span>
+                        {m.digest ? <span className="tag mono">{m.digest.slice(0, 8)}</span> : null}
+                        <span className="mono text-muted">{m.mountPath}</span>
+                      </div>
+                    </div>
+                    <div className="card-body flush">
+                      <table className="table cfg-snapshot-files">
+                        <thead>
+                          <tr>
+                            <th>路径</th>
+                            <th>大小</th>
+                            <th className="th-actions">操作</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(m.files || []).map((f, fi) => {
+                            const key = `${idx}:${fi}`;
+                            const open = openFile === key;
+                            const lang = configFileLang(f.path).toLowerCase();
+                            return (
+                              <Fragment key={f.path}>
+                                <tr>
+                                  <td className="mono">{f.path}</td>
+                                  <td className="mono">{formatBytes(f.size || f.content?.length || 0)}</td>
+                                  <td className="td-actions">
+                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpenFile(open ? "" : key)}>
+                                      {open ? "收起" : "展开"}
+                                    </button>
+                                  </td>
+                                </tr>
+                                {open ? (
+                                  <tr>
+                                    <td colSpan={3}>
+                                      <pre className="code-block is-hl" data-lang={lang === "text" ? "yaml" : lang}>{highlightYaml(f.content)}</pre>
+                                    </td>
+                                  </tr>
+                                ) : null}
+                              </Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
         {tab === "pods" ? (
@@ -178,18 +257,18 @@ export function JobDetailPage() {
                 <div className="pod-log-pane-head">
                   <div>
                     <div className="pod-log-pane-title">Pod 列表</div>
-                    <div className="text-muted" style={{ fontSize: 11.5, marginTop: 2 }}>
-                      共 {podsQuery.data?.list.length ?? 0} · Running {(podsQuery.data?.list ?? []).filter((p) => p.phase === "Running").length}
+                    <div className="pod-log-pane-sub">
+                      共 {pods.length} · Running {runningCount} · 节点 {nodeCount}
                     </div>
                   </div>
                 </div>
                 <div className="pod-log-list">
-                  {(podsQuery.data?.list ?? []).map((p, idx) => (
+                  {pods.map((p, idx) => (
                     <div key={p.name} className={`pod-row ${p.name === selectedPod ? "selected" : ""}`} onClick={() => setPodName(p.name)}>
                       <div className="pod-row-top">
                         <span className="pod-row-idx mono">{idx}</span>
                         <span className="pod-row-name mono">{p.name.replace(`${job.name}-`, "")}</span>
-                        <span className={`badge ${p.phase === "Running" ? "badge-running" : p.phase === "Failed" ? "badge-failed" : "badge-starting"}`}>{p.phase}</span>
+                        <span className={`badge ${podPhaseClass(p.phase)}`}>{p.phase}</span>
                       </div>
                       <div className="pod-row-meta">
                         <span className="tag">{p.role}</span>
@@ -199,40 +278,44 @@ export function JobDetailPage() {
                       </div>
                     </div>
                   ))}
-                  {!podsQuery.data?.list.length ? <div className="empty-state">暂无 Pod</div> : null}
+                  {!pods.length ? <div className="empty-state">暂无 Pod</div> : null}
                 </div>
               </div>
               <div className="pod-log-pane pod-log-pane-right">
                 <div className="pod-log-pane-head">
-                  <div style={{ minWidth: 0, flex: 1 }}>
+                  <div className="pod-log-head-copy">
                     <div className="pod-log-pane-title">进程日志</div>
-                    <div className="mono text-muted" style={{ fontSize: 11.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {selectedPod || "—"}
-                    </div>
+                    <div className="pod-log-pane-sub is-mono" title={logMeta}>{logMeta}</div>
                   </div>
-                  <div className="flex gap-8" style={{ flexShrink: 0 }}>
+                  <div className="pod-log-actions pod-log-toolbar">
+                    <label className="pod-log-follow flex-center gap-8 text-muted">
+                      <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />
+                      跟随
+                    </label>
                     <Button variant="secondary" size="sm" onClick={() => logsQuery.refetch()}>刷新</Button>
                     <Button variant="ghost" size="sm" onClick={() => {
-                      const blob = new Blob([logsQuery.data?.content || ""], { type: "text/plain;charset=utf-8" });
+                      const blob = new Blob([logText], { type: "text/plain;charset=utf-8" });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");
                       a.href = url;
-                      a.download = `${selectedPod || "pod"}.log`;
+                      a.download = `${shortPod || selectedPod || "pod"}.log`;
                       a.click();
                       URL.revokeObjectURL(url);
                     }}>下载</Button>
                   </div>
                 </div>
                 <div className="log-panel pod-log-panel">
-                  <pre className="log-lines" style={{ whiteSpace: "pre-wrap" }}>{logsQuery.data?.content || "没有匹配的进程日志"}</pre>
+                  <div className="log-lines" ref={logRef}>
+                    {renderLogLines(logText)}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         ) : null}
         {tab === "metrics" ? (
-          <div className="tab-panel active empty-state" style={{ padding: 48 }}>
-            任务监控将对接 Prometheus，并在此嵌入 Grafana 看板。本迭代暂不查询监控数据。
+          <div className="tab-panel active">
+            <div className="job-detail-placeholder">任务监控将对接 Prometheus，并在此嵌入 Grafana 看板。本迭代暂不查询监控数据。</div>
           </div>
         ) : null}
         {tab === "alerts" ? (
@@ -255,8 +338,8 @@ export function JobDetailPage() {
           </div>
         ) : null}
         {tab === "logsearch" ? (
-          <div className="tab-panel active empty-state" style={{ padding: 48 }}>
-            日志检索将对接 Elasticsearch。本迭代暂不提供跨 Pod 关键词搜索，请使用「Pod 列表」查看容器日志。
+          <div className="tab-panel active">
+            <div className="job-detail-placeholder">日志检索将对接 Elasticsearch。本迭代暂不提供跨 Pod 关键词搜索，请使用「Pod 列表」查看容器日志。</div>
           </div>
         ) : null}
       </div>
@@ -265,4 +348,143 @@ export function JobDetailPage() {
       </Modal>
     </section>
   );
+}
+
+function podPhaseClass(phase: string) {
+  if (phase === "Running") return "badge-running";
+  if (phase === "Failed") return "badge-failed";
+  if (phase === "Succeeded") return "badge-success";
+  return "badge-starting";
+}
+
+function highlightVars(text: string, fallback: string): ReactNode {
+  const parts = String(text).split(/(\$\{?[A-Za-z_][A-Za-z0-9_]*\}?)/).filter(Boolean);
+  return parts.map((part, i) => (
+    <span key={i} className={part.startsWith("$") ? "hl-var" : fallback}>{part}</span>
+  ));
+}
+
+function highlightShell(command: string): ReactNode {
+  const raw = command.trim();
+  if (!raw) return <span className="hl-comment"># 无启动命令</span>;
+  const tokens: ReactNode[] = [];
+  let i = 0;
+  let cmdPending = true;
+  let key = 0;
+  const push = (node: ReactNode) => {
+    tokens.push(<span key={key}>{node}</span>);
+    key += 1;
+  };
+  while (i < raw.length) {
+    const rest = raw.slice(i);
+    if (raw[i] === "#" && (i === 0 || /\s/.test(raw[i - 1]))) {
+      push(<span className="hl-comment">{raw.slice(i)}</span>);
+      break;
+    }
+    if (raw[i] === "$") {
+      const m = rest.match(/^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/);
+      push(<span className="hl-var">{m![0]}</span>);
+      i += m![0].length;
+      cmdPending = false;
+      continue;
+    }
+    if (rest.startsWith("--") || (raw[i] === "-" && /[A-Za-z]/.test(raw[i + 1] || ""))) {
+      const m = rest.match(/^--?[\w-]+(?:=[^\s]+)?/);
+      const word = m![0];
+      const eq = word.indexOf("=");
+      if (eq >= 0) {
+        push(<span className="hl-flag">{word.slice(0, eq + 1)}</span>);
+        push(highlightVars(word.slice(eq + 1), "hl-str"));
+      } else {
+        push(<span className="hl-flag">{word}</span>);
+      }
+      i += word.length;
+      cmdPending = false;
+      continue;
+    }
+    if (raw[i] === "/" || rest.startsWith("./") || rest.startsWith("../")) {
+      const m = rest.match(/^[^\s]+/);
+      push(<span className="hl-path">{m![0]}</span>);
+      i += m![0].length;
+      cmdPending = false;
+      continue;
+    }
+    if (/\s/.test(raw[i])) {
+      const m = rest.match(/^\s+/);
+      tokens.push(<span key={key}>{m![0]}</span>);
+      key += 1;
+      i += m![0].length;
+      continue;
+    }
+    const m = rest.match(/^[^\s]+/);
+    const word = m![0];
+    if (cmdPending && !word.endsWith("=") && word !== "\\") {
+      push(<span className="hl-cmd">{word}</span>);
+      cmdPending = false;
+    } else {
+      push(highlightVars(word, word.includes("/") ? "hl-path" : "hl-str"));
+    }
+    i += word.length;
+  }
+  return tokens;
+}
+
+function highlightEnv(env: EnvEntry[] | undefined): ReactNode {
+  if (!env?.length) return <span className="hl-comment"># 无额外环境变量</span>;
+  return env.map((item, i) => (
+    <span key={`${item.key}-${i}`}>
+      {i > 0 ? "\n" : null}
+      <span className="hl-key">{item.key}</span>
+      <span className="hl-punct">=</span>
+      <span className="hl-str">{item.value}</span>
+    </span>
+  ));
+}
+
+function highlightYaml(content: string): ReactNode {
+  const text = content || "";
+  if (!text) return null;
+  return text.split("\n").map((line, i) => {
+    const m = line.match(/^(\s*)([^:#\n][^:\n]*)(:)(\s*)(.*)$/);
+    return (
+      <span key={i}>
+        {i > 0 ? "\n" : null}
+        {m ? (
+          <>
+            {m[1]}
+            <span className="hl-key">{m[2]}</span>
+            <span className="hl-punct">{m[3]}</span>
+            {m[4]}
+            {m[5] === "" ? null : /^\d+(\.\d+)?$/.test(m[5]) ? <span className="hl-num">{m[5]}</span> : <span className="hl-str">{m[5]}</span>}
+          </>
+        ) : line}
+      </span>
+    );
+  });
+}
+
+function renderLogLines(content: string): ReactNode {
+  const text = content.replace(/\s+$/, "");
+  if (!text) {
+    return <div className="log-line"><span className="log-msg text-muted">没有匹配的进程日志</span></div>;
+  }
+  return text.split("\n").map((line, i) => {
+    const structured = line.match(/^(\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+(r\d+)\s+(INFO|WARN|WARNING|ERROR|DEBUG)\b\s*(.*)$/i);
+    if (structured) {
+      const level = structured[3].toLowerCase().startsWith("warn") ? "warn" : structured[3].toLowerCase();
+      return (
+        <div className="log-line" key={i}>
+          <span className="log-ts">{structured[1]}</span>
+          <span className="log-rank">{structured[2]}</span>
+          <span className={`log-level ${level}`}>{structured[3].toUpperCase() === "WARNING" ? "WARN" : structured[3].toUpperCase()}</span>
+          <span className="log-msg">{structured[4]}</span>
+        </div>
+      );
+    }
+    return (
+      <div className="log-line" key={i}>
+        <span className="log-msg">{line || " "}</span>
+      </div>
+    );
+  });
 }

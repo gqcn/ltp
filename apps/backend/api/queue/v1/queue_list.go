@@ -12,13 +12,14 @@ type TeamRef struct {
 
 // ListReq 查询分页队列。
 type ListReq struct {
-	g.Meta         `path:"/queues" method:"get" tags:"Queue" summary:"列出队列" dc:"按工作集群列出业务队列。已用额度优先取自 Volcano Queue.status.allocated。团队名称批量投影。" permission:"ops:queue:query"`
+	g.Meta         `path:"/queues" method:"get" tags:"Queue" summary:"列出队列" dc:"按工作集群列出业务队列。已用额度优先取自 Volcano Queue.status.allocated。团队名称与本月卡时批量投影。可选按启用状态筛选。" permission:"ops:queue:query"`
 	ClusterId      int64  `json:"clusterId" v:"required|min:1" dc:"工作集群 ID" eg:"1"`
 	PageNum        int    `json:"pageNum" d:"1" v:"min:1" dc:"页码，从 1 开始。" eg:"1"`
 	PageSize       int    `json:"pageSize" d:"10" v:"min:1|max:100" dc:"每页条数。" eg:"10"`
 	Keyword        string `json:"keyword" dc:"可选模糊匹配标识、显示名、说明或团队名。" eg:"lab"`
 	DatacenterCode string `json:"datacenterCode" dc:"可选数据中心标识。空表示全部。" eg:"cq-lj"`
 	GpuType        string `json:"gpuType" dc:"可选卡型号。空表示全部。" eg:"H100-80G"`
+	Enabled        *bool  `json:"enabled" dc:"可选启用状态过滤。省略返回全部，true 为启用（Volcano Open），false 为禁用（Closed、Closing 或同步异常）。" eg:"true"`
 }
 
 // ListItem 是列表中的一条队列。
@@ -40,6 +41,7 @@ type ListItem struct {
 	Reclaimable    bool      `json:"reclaimable" dc:"是否允许回收" eg:"true"`
 	Features       []string  `json:"features" dc:"功能特性，如 ib" eg:"[]"`
 	Enabled        bool      `json:"enabled" dc:"是否启用（对应 Volcano Open/Closed）" eg:"true"`
+	GpuHoursMonth  float64   `json:"gpuHoursMonth" dc:"本月卡时。按 GPU 数 × 运行时长计算，排队中不计；无任务为 0。" eg:"12.5"`
 	State          string    `json:"state" dc:"Volcano 状态。Open / Closed / Unknown。" eg:"Open"`
 	Pending        int       `json:"pending" dc:"排队中的 PodGroup 数" eg:"0"`
 	Running        int       `json:"running" dc:"运行中的 PodGroup 数" eg:"0"`

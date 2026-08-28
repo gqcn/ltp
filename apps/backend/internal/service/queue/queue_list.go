@@ -32,14 +32,28 @@ type countByDCRow struct {
 // List 返回分页队列并刷新 Volcano 已用。
 func (s *serviceImpl) List(ctx context.Context, in ListInput) (*ListOutput, error) {
 	pageNum, pageSize := normalizePage(in.PageNum, in.PageSize)
-	total, err := s.listModel(ctx, in).Count()
-	if err != nil {
-		return nil, gerror.Wrap(err, "count queues")
+	if in.Enabled == nil {
+		total, err := s.listModel(ctx, in).Count()
+		if err != nil {
+			return nil, gerror.Wrap(err, "count queues")
+		}
+		var rows []*entity.OpsQueue
+		if err := s.listModel(ctx, in).
+			OrderDesc(dao.OpsQueue.Columns().Id).
+			Page(pageNum, pageSize).
+			Scan(&rows); err != nil {
+			return nil, gerror.Wrap(err, "list queues")
+		}
+		items, err := s.projectItems(ctx, rows)
+		if err != nil {
+			return nil, err
+		}
+		return &ListOutput{List: items, Total: total}, nil
 	}
 	var rows []*entity.OpsQueue
 	if err := s.listModel(ctx, in).
 		OrderDesc(dao.OpsQueue.Columns().Id).
-		Page(pageNum, pageSize).
+		Limit(maxInCluster).
 		Scan(&rows); err != nil {
 		return nil, gerror.Wrap(err, "list queues")
 	}
@@ -47,7 +61,14 @@ func (s *serviceImpl) List(ctx context.Context, in ListInput) (*ListOutput, erro
 	if err != nil {
 		return nil, err
 	}
-	return &ListOutput{List: items, Total: total}, nil
+	filtered := make([]*Item, 0, len(items))
+	want := *in.Enabled
+	for _, item := range items {
+		if item != nil && item.Enabled == want {
+			filtered = append(filtered, item)
+		}
+	}
+	return &ListOutput{List: paginateItems(filtered, pageNum, pageSize), Total: len(filtered)}, nil
 }
 
 // Get 返回队列详情。
@@ -378,4 +399,20 @@ func normalizePage(pageNum int, pageSize int) (int, int) {
 		pageSize = maxListSize
 	}
 	return pageNum, pageSize
+}
+
+// paginateItems 按已规范化的页码切出当前页。
+func paginateItems(items []*Item, pageNum int, pageSize int) []*Item {
+	if len(items) == 0 {
+		return []*Item{}
+	}
+	start := (pageNum - 1) * pageSize
+	if start >= len(items) {
+		return []*Item{}
+	}
+	end := start + pageSize
+	if end > len(items) {
+		end = len(items)
+	}
+	return items[start:end]
 }

@@ -15,6 +15,7 @@ import { errText, focusField, groupClass, invalidProps, LINE_MAX, useZodForm, zL
 import { DcBadge, QuotaMini } from "@/components/UsageCell";
 import { quotaBarClass } from "@/lib/resources";
 import { useWorkingCluster } from "@/lib/useWorkingCluster";
+import { formatGpuHours } from "@/lib/job";
 import { toast } from "@/lib/toast";
 
 const emptyForm: QueueWrite & { name: string } = {
@@ -57,6 +58,7 @@ export function QueuePage() {
   const [keyword, setKeyword] = useState("");
   const [dc, setDc] = useState("all");
   const [gpuType, setGpuType] = useState("all");
+  const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [formOpen, setFormOpen] = useState(false);
@@ -86,7 +88,7 @@ export function QueuePage() {
     enabled: formOpen,
   });
   const listQuery = useQuery({
-    queryKey: ["queues", { clusterId, keyword, dc, gpuType, page, pageSize }],
+    queryKey: ["queues", { clusterId, keyword, dc, gpuType, status, page, pageSize }],
     queryFn: () =>
       listQueues({
         clusterId: clusterId!,
@@ -95,6 +97,7 @@ export function QueuePage() {
         keyword: keyword.trim() || undefined,
         datacenterCode: dc === "all" ? undefined : dc,
         gpuType: gpuType === "all" ? undefined : gpuType,
+        enabled: status === "all" ? undefined : status === "enabled",
       }),
     enabled: Boolean(clusterId),
   });
@@ -204,7 +207,7 @@ export function QueuePage() {
 
   if (clustersLoading) {
     return (
-      <section className="page active">
+      <section className="page active" id="page-queue-mgmt">
         <div className="page-header">
           <div>
             <h1>队列管理</h1>
@@ -222,7 +225,7 @@ export function QueuePage() {
 
   if (!clusters.length) {
     return (
-      <section className="page active">
+      <section className="page active" id="page-queue-mgmt">
         <div className="page-header">
           <div>
             <h1>队列管理</h1>
@@ -235,7 +238,7 @@ export function QueuePage() {
   }
 
   return (
-    <section className="page active">
+    <section className="page active" id="page-queue-mgmt">
       <div className="page-header">
         <div>
           <h1>队列管理</h1>
@@ -260,9 +263,23 @@ export function QueuePage() {
       <div className="toolbar">
         <div className="search-box">
           <span className="search-icon">⌕</span>
-          <input value={keyword} placeholder="搜索队列 / 团队..." onChange={(e) => setKeyword(e.target.value)} />
+          <input
+            value={keyword}
+            placeholder="搜索队列 / 团队..."
+            onChange={(e) => {
+              setPage(1);
+              setKeyword(e.target.value);
+            }}
+          />
         </div>
-        <select className="filter-select" value={dc} onChange={(e) => setDc(e.target.value)}>
+        <select
+          className="filter-select"
+          value={dc}
+          onChange={(e) => {
+            setPage(1);
+            setDc(e.target.value);
+          }}
+        >
           <option value="all">全部数据中心</option>
           {enabledDcs.map((item) => (
             <option key={item.code} value={item.code}>
@@ -270,13 +287,33 @@ export function QueuePage() {
             </option>
           ))}
         </select>
-        <select className="filter-select" value={gpuType} onChange={(e) => setGpuType(e.target.value)}>
+        <select
+          className="filter-select"
+          value={gpuType}
+          onChange={(e) => {
+            setPage(1);
+            setGpuType(e.target.value);
+          }}
+        >
           <option value="all">全部卡型号</option>
           {[...new Set(rows.map((q) => q.gpuType).filter(Boolean))].map((t) => (
             <option key={t} value={t}>
               {t}
             </option>
           ))}
+        </select>
+        <select
+          className="filter-select"
+          aria-label="按状态筛选"
+          value={status}
+          onChange={(e) => {
+            setPage(1);
+            setStatus(e.target.value);
+          }}
+        >
+          <option value="all">全部状态</option>
+          <option value="enabled">启用</option>
+          <option value="disabled">禁用</option>
         </select>
       </div>
       <div className="card">
@@ -291,13 +328,14 @@ export function QueuePage() {
           >
             <>
               <div className="table-wrap">
-                <table className="table">
+                <table className="table queue-list-table">
                   <thead>
                     <tr>
                       <th>队列</th>
                       <th>团队</th>
                       <th>数据中心</th>
                       <th>GPU</th>
+                      <th>本月卡时</th>
                       <th>额度（已用 / 总量）</th>
                       <th>功能特性</th>
                       <th>状态</th>
@@ -337,6 +375,10 @@ export function QueuePage() {
                             <span className="gpu-type-text" title={q.gpuType}>
                               {q.gpuType || "—"}
                             </span>
+                          </td>
+                          <td className="td-queue-hours">
+                            <strong>{formatGpuHours(q.gpuHoursMonth)}</strong>
+                            <span className="text-muted"> 卡时</span>
                           </td>
                           <td className="td-queue-quota">
                             <div className="queue-quota-mini-list">
@@ -688,7 +730,7 @@ export function QueuePage() {
               ? "删除后新任务不可再选择该队列，团队关联将解除。已结束任务的历史记录会保留。此操作不可撤销。"
               : pending?.type === "enable"
                 ? "启用后，该队列将重新出现在新建任务的队列选择列表中，团队成员可再次提交任务。"
-                : "禁用后，新建任务将不可再选择该队列；已在运行 / 排队的任务不受影响。可随时重新启用。"}
+                : "禁用后，新建任务将不可再选择该队列。运行中的任务不受影响；排队中的任务将无法被调度，需要手动终止。可随时重新启用。"}
         </p>
       </Modal>
     </section>

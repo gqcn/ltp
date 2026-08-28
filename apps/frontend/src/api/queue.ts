@@ -20,6 +20,7 @@ export type Queue = {
   reclaimable: boolean;
   features: string[];
   enabled: boolean;
+  gpuHoursMonth: number;
   state: string;
   pending: number;
   running: number;
@@ -60,6 +61,7 @@ export function listQueues(query: {
   keyword?: string;
   datacenterCode?: string;
   gpuType?: string;
+  enabled?: boolean;
 }) {
   const params = new URLSearchParams();
   params.set("clusterId", String(query.clusterId));
@@ -68,6 +70,7 @@ export function listQueues(query: {
   if (query.keyword) params.set("keyword", query.keyword);
   if (query.datacenterCode) params.set("datacenterCode", query.datacenterCode);
   if (query.gpuType) params.set("gpuType", query.gpuType);
+  if (query.enabled !== undefined) params.set("enabled", String(query.enabled));
   return api<{ list: Queue[]; total: number }>(`/queues?${params.toString()}`);
 }
 

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { logout, type SessionUser } from "@/api/auth";
 import { getAlertSummary } from "@/api/alert";
 import type { Cluster } from "@/api/cluster";
+import { getJob } from "@/api/training";
 import { Modal } from "@/components/Modal";
 import { canVisit, MENU_OPS, MENU_PLATFORM, MENU_TRAINING } from "@/lib/access";
 import { applySidebarCollapsed, readSidebarCollapsed, toggleTheme, readTheme } from "@/lib/theme";
@@ -73,12 +74,19 @@ export function AppShell({ user }: Props) {
   const showPlatform = canVisit(user, MENU_PLATFORM);
   const showTraining = canVisit(user, MENU_TRAINING);
   const rerunId = Number(new URLSearchParams(location.search).get("rerun") || 0);
+  const jobDetailMatch = location.pathname.match(/^\/training\/jobs\/(\d+)$/);
+  const jobDetailId = jobDetailMatch ? Number(jobDetailMatch[1]) : 0;
+  const jobDetailQuery = useQuery({
+    queryKey: ["training-job", jobDetailId],
+    queryFn: () => getJob(jobDetailId),
+    enabled: jobDetailId > 0,
+  });
   const crumb =
     location.pathname === "/training/jobs/new" && rerunId > 0
       ? { current: "重跑任务", parent: { label: "任务列表", to: "/training/jobs" } }
       : breadcrumbs[location.pathname] ||
-        (/^\/training\/jobs\/\d+$/.test(location.pathname)
-          ? { current: "任务详情", parent: { label: "任务列表", to: "/training/jobs" } }
+        (jobDetailId > 0
+          ? { current: jobDetailQuery.data?.name || "任务详情", parent: { label: "任务列表", to: "/training/jobs" } }
           : /^\/training\/configs\/\d+\/edit$/.test(location.pathname)
             ? { current: "发布新版本", parent: { label: "配置管理", to: "/training/configs" } }
             : /^\/training\/configs\/\d+$/.test(location.pathname)

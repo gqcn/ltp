@@ -249,6 +249,8 @@ type Service interface {
 	ListAlerts(ctx context.Context, actor Actor, id int64) ([]RelatedAlert, error)
 	// ListMyQueues 返回用户侧队列与卡时。
 	ListMyQueues(ctx context.Context, actor Actor, clusterID int64) (*MyQueuesOutput, error)
+	// GPUHoursMonthByQueueIDs 按队列批量返回本月卡时。每个 ID 都出现在结果中，无任务为 0；clusterID 或 queueIDs 为空时返回全 0 映射。
+	GPUHoursMonthByQueueIDs(ctx context.Context, clusterID int64, queueIDs []int64) (map[int64]float64, error)
 	// ListRelatedJobs 按节点名查找任务，供告警中心。
 	ListRelatedJobs(ctx context.Context, clusterID int64, nodes []string) ([]RelatedJob, error)
 }

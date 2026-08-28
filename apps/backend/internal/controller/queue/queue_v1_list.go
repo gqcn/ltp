@@ -18,6 +18,7 @@ func (c *ControllerV1) List(ctx context.Context, req *v1.ListReq) (res *v1.ListR
 		Keyword:        req.Keyword,
 		DatacenterCode: req.DatacenterCode,
 		GPUType:        req.GpuType,
+		Enabled:        req.Enabled,
 	})
 	if err != nil {
 		return nil, err
@@ -25,6 +26,9 @@ func (c *ControllerV1) List(ctx context.Context, req *v1.ListReq) (res *v1.ListR
 	items := make([]*v1.ListItem, 0, len(out.List))
 	for _, item := range out.List {
 		items = append(items, toListItem(item))
+	}
+	if err := c.attachGPUHours(ctx, req.ClusterId, items); err != nil {
+		return nil, err
 	}
 	return &v1.ListRes{List: items, Total: out.Total}, nil
 }

@@ -14,5 +14,9 @@ func (c *ControllerV1) Get(ctx context.Context, req *v1.GetReq) (res *v1.GetRes,
 	if err != nil {
 		return nil, err
 	}
-	return &v1.GetRes{ListItem: *toListItem(item)}, nil
+	dto := toListItem(item)
+	if err := c.attachGPUHours(ctx, item.ClusterID, []*v1.ListItem{dto}); err != nil {
+		return nil, err
+	}
+	return &v1.GetRes{ListItem: *dto}, nil
 }

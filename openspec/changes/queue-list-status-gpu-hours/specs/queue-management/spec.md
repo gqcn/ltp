@@ -1,0 +1,35 @@
+## MODIFIED Requirements
+
+### Requirement: 队列列表展示额度与 Volcano 状态
+
+列表 MUST 支持按关键词、数据中心、卡型号、启用状态筛选并分页。启用状态筛选省略时 MUST 返回全部；`enabled=true` MUST 只返回启用队列，`enabled=false` MUST 只返回禁用队列。启用对应`Open`，禁用对应`Closed`、`Closing`或与`Volcano`同步异常。每行 MUST 展示关联团队（批量投影）、数据中心、卡型号、`GPU`/`CPU`/`内存`已用与额度、本月卡时、功能特性、状态。已用 MUST 优先取自`Volcano Queue.status.allocated`。本月卡时 MUST 按「`GPU`数 × 运行时长」计算，排队中不计，并按`started_at`/`ended_at`与自然月交集在服务端按当前页队列批量聚合。禁用或与`Volcano Queue`同步异常的队列 MUST NOT 被训练中心新建任务选为可提交目标。业务队列存在但集群中没有同名`Queue`时，MUST 用中文标明同步异常，并提供「重新同步」按库中元数据写回`CR`。
+
+#### Scenario: 按启用状态筛选
+
+- **WHEN** 当前集群同时存在启用队列与禁用队列，运维在队列管理选择「禁用」
+- **THEN** 列表只出现禁用队列，启用队列不出现；选择「启用」时相反；选择「全部状态」时两者都出现
+
+#### Scenario: 列表展示本月卡时
+
+- **WHEN** 某队列在本月有已开始运行的训练任务
+- **THEN** 队列管理该行「本月卡时」列展示按`GPU`数 × 本月运行时长聚合的卡时，而不是空白
+
+#### Scenario: 禁用队列不能提交训练任务
+
+- **WHEN** 运维将队列禁用后，训练用户在新建任务中选择该队列并提交
+- **THEN** 提交被拒绝，集群中不新增`Volcano Job`
+
+#### Scenario: CR 丢失后可重新同步
+
+- **WHEN** 业务队列`lab-default`仍在库中，但集群里没有同名`Volcano Queue`
+- **THEN** 列表提示找不到对应的`Volcano Queue`；运维点击「重新同步」后，集群出现该`Queue`且提示消失
+
+#### Scenario: 禁用队列关闭 Volcano Queue
+
+- **WHEN** 运维禁用队列`lab-default`
+- **THEN** 对应`Queue`状态为`Closed`，列表标记为禁用
+
+#### Scenario: 禁用队列确认提示运行中与排队任务差异
+
+- **WHEN** 运维在队列管理点击「禁用」
+- **THEN** 确认框提示运行中的任务不受影响，排队中的任务将无法被调度、需要手动终止

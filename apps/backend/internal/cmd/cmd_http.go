@@ -123,7 +123,7 @@ func httpFunc(ctx context.Context, _ *gcmd.Parser) error {
 		systemCtrl   = system.NewV1(ldapSvc, userSvc, bizCtxSvc)
 		clusterCtrl  = cluster.NewV1(clusterSvc)
 		nodeCtrl     = node.NewV1(nodeSvc, bizCtxSvc)
-		queueCtrl    = queue.NewV1(queueSvc)
+		queueCtrl    = queue.NewV1(queueSvc, jobSvc)
 		alertCtrl    = alert.NewV1(alertSvc, bizCtxSvc)
 		trainingCtrl = training.NewV1(jobSvc, cfgSvc, clusterSvc, teamSvc, userSvc, bizCtxSvc)
 		webhookCtrl  = webhook.NewV1(alertSvc)
