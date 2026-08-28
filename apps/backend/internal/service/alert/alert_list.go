@@ -55,6 +55,57 @@ func (s *serviceImpl) List(ctx context.Context, in ListInput) (*ListOutput, erro
 	return &ListOutput{List: items, Total: total, Summary: summary}, nil
 }
 
+const maxRelatedAlerts = 50
+
+// ListByClusterNodes 按节点名求交返回告警。
+func (s *serviceImpl) ListByClusterNodes(ctx context.Context, clusterID int64, nodes []string) ([]*Item, error) {
+	cleaned := uniqueNodes(nodes)
+	if clusterID <= 0 || len(cleaned) == 0 {
+		return []*Item{}, nil
+	}
+	mod := dao.OpsAlert.Ctx(ctx).Where(do.OpsAlert{ClusterId: clusterID})
+	builder := mod.Builder()
+	for i, node := range cleaned {
+		pattern := "%" + node + "%"
+		if i == 0 {
+			builder = builder.WhereLike(dao.OpsAlert.Columns().NodeNames, pattern)
+			continue
+		}
+		builder = builder.WhereOrLike(dao.OpsAlert.Columns().NodeNames, pattern)
+	}
+	var rows []*entity.OpsAlert
+	if err := mod.Where(builder).OrderDesc(dao.OpsAlert.Columns().Id).Limit(maxRelatedAlerts).Scan(&rows); err != nil {
+		return nil, gerror.Wrap(err, "list alerts by nodes")
+	}
+	items := make([]*Item, 0, len(rows))
+	for _, row := range rows {
+		if row != nil {
+			items = append(items, toItem(row, false))
+		}
+	}
+	return items, nil
+}
+
+func uniqueNodes(nodes []string) []string {
+	out := make([]string, 0, len(nodes))
+	seen := map[string]struct{}{}
+	for _, raw := range nodes {
+		node := strings.TrimSpace(raw)
+		if node == "" {
+			continue
+		}
+		if _, ok := seen[node]; ok {
+			continue
+		}
+		seen[node] = struct{}{}
+		out = append(out, node)
+		if len(out) >= 32 {
+			break
+		}
+	}
+	return out
+}
+
 // Get 返回含原始 JSON 的详情。
 func (s *serviceImpl) Get(ctx context.Context, id int64) (*Item, error) {
 	row, err := s.mustGet(ctx, id)

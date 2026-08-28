@@ -14,6 +14,9 @@ export function writeWorkingClusterId(id: number) {
 }
 
 export function pickWorkingClusterId(ids: number[], current: number | null) {
+  if (ids.length === 0) {
+    return current;
+  }
   if (current && ids.includes(current)) {
     return current;
   }

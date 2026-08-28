@@ -45,4 +45,10 @@ var (
 		"{message}",
 		gcode.CodeInvalidParameter,
 	)
+	// CodePodNotFound 表示 Pod 不存在。
+	CodePodNotFound = bizerr.MustDefine(
+		"KUBE_POD_NOT_FOUND",
+		"Pod does not exist",
+		gcode.CodeNotFound,
+	)
 )

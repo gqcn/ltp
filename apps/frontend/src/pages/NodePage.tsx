@@ -200,7 +200,7 @@ export function NodePage() {
 
   if (clustersLoading) {
     return (
-      <section className="page active">
+      <section className="page active" id="page-node-mgmt">
         <div className="page-header">
           <div>
             <h1>节点管理</h1>
@@ -208,7 +208,7 @@ export function NodePage() {
           </div>
         </div>
         <div className="card">
-          <div className="card-body flush">
+          <div className="card-body flush" id="node-mgmt-body">
             <ListLoading label="正在加载节点…" />
           </div>
         </div>
@@ -218,7 +218,7 @@ export function NodePage() {
 
   if (!clusters.length) {
     return (
-      <section className="page active">
+      <section className="page active" id="page-node-mgmt">
         <div className="page-header">
           <div>
             <h1>节点管理</h1>
@@ -231,7 +231,7 @@ export function NodePage() {
   }
 
   return (
-    <section className="page active">
+    <section className="page active" id="page-node-mgmt">
       <div className="page-header">
         <div>
           <h1>节点管理</h1>
@@ -325,7 +325,7 @@ export function NodePage() {
                 </div>
               </div>
             ) : null}
-            <div className="card-body flush">
+            <div className="card-body flush" id="node-mgmt-body">
               <ListBody
                 loading={!clusterId || listQuery.isLoading}
                 error={listQuery.isError}
@@ -396,8 +396,8 @@ export function NodePage() {
                                 </span>
                               ) : null}
                             </td>
-                            <td>
-                              <span className={n.status === "Ready" ? "badge badge-healthy node-k8s-status" : "badge badge-danger node-k8s-status"}>{n.status}</span>
+                            <td className="td-node-status">
+                              <NodeStatusBadge node={n} />
                             </td>
                             <td className="td-node-pods">
                               <span className={`node-pods-cell${n.status === "NotReady" ? " is-unknown" : ""}`}>
@@ -490,7 +490,7 @@ export function NodePage() {
                 </div>
               </div>
             </div>
-            <div className="card-body flush">
+            <div className="card-body flush" id="node-mgmt-records-list">
               <ListBody
                 loading={eventsQuery.isLoading}
                 error={eventsQuery.isError}
@@ -504,9 +504,9 @@ export function NodePage() {
                     <thead>
                       <tr>
                         <th>时间</th>
-                        <th>动作</th>
+                        <th>操作</th>
                         <th>节点</th>
-                        <th>操作者</th>
+                        <th>操作人</th>
                         <th>备注</th>
                         <th>结果</th>
                       </tr>
@@ -514,12 +514,18 @@ export function NodePage() {
                     <tbody>
                       {eventSlice.map((ev: NodeEvent) => (
                         <tr key={ev.id}>
-                          <td className="mono">{formatTime(ev.createdAt)}</td>
-                          <td>{actionLabel(ev.action)}</td>
-                          <td className="mono">{ev.nodeName}</td>
+                          <td className="mono text-muted">{formatTime(ev.createdAt)}</td>
+                          <td>
+                            <span className={`badge ${actionBadgeClass(ev.action)}`}>{actionLabel(ev.action)}</span>
+                          </td>
+                          <td className="mono" style={{ color: "var(--text-0)", fontWeight: 500 }}>{ev.nodeName}</td>
                           <td>{ev.operator || "—"}</td>
-                          <td>{ev.remark || "—"}</td>
-                          <td>{ev.result === "success" ? "成功" : "失败"}</td>
+                          <td style={{ maxWidth: 360 }}>{ev.remark || "—"}</td>
+                          <td>
+                            <span className={`badge ${ev.result === "success" ? "badge-success" : "badge-failed"}`}>
+                              {ev.result === "success" ? "成功" : "失败"}
+                            </span>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -877,7 +883,7 @@ export function NodePage() {
                     <div className="kv-item">
                       <span className="k">状态</span>
                       <span className="v">
-                        <span className={detail.status === "Ready" ? "badge badge-healthy node-k8s-status" : "badge badge-danger node-k8s-status"}>{detail.status}</span>
+                        <NodeStatusBadge node={detail} />
                       </span>
                     </div>
                     <div className="kv-item">
@@ -963,15 +969,7 @@ export function NodePage() {
                     <div className="kv-item full">
                       <span className="k">Conditions</span>
                       <span className="v node-condition-tags">
-                        {detail.conditions.length ? (
-                          detail.conditions.map((c) => (
-                            <span key={c} className="badge badge-warning">
-                              {c}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="badge badge-healthy">Ready</span>
-                        )}
+                        <NodeConditionTags node={detail} />
                       </span>
                     </div>
                   </div>
@@ -1501,4 +1499,45 @@ function buildNodeYaml(n: ClusterNode, clusterName?: string) {
 function actionLabel(action: string) {
   const map: Record<string, string> = { isolate: "隔离", recover: "入池", "set-dc": "数据中心", labels: "标签", taints: "污点" };
   return map[action] || action;
+}
+
+function actionBadgeClass(action: string) {
+  if (action === "isolate") return "badge-warning";
+  if (action === "recover") return "badge-success";
+  return "badge-info";
+}
+
+function nodeStatusText(node: ClusterNode) {
+  const parts = [node.ready ? "Ready" : "NotReady"];
+  if (!node.schedulable) parts.push("SchedulingDisabled");
+  return parts.join(",");
+}
+
+function NodeStatusBadge({ node }: { node: ClusterNode }) {
+  const text = nodeStatusText(node);
+  const cls = !node.ready ? "badge-danger" : node.schedulable ? "badge-healthy" : "badge-warning";
+  return (
+    <span className={`badge ${cls} node-k8s-status`} title={text}>
+      {text}
+    </span>
+  );
+}
+
+const NODE_CONDITION_TYPES = ["Ready", "MemoryPressure", "DiskPressure", "PIDPressure", "NetworkUnavailable"] as const;
+
+function NodeConditionTags({ node }: { node: ClusterNode }) {
+  const abnormal = new Set(node.conditions);
+  return (
+    <>
+      {NODE_CONDITION_TYPES.map((type) => {
+        const on = type === "Ready" ? node.ready : abnormal.has(type);
+        const cls = type === "Ready" ? (on ? "badge-healthy" : "badge-danger") : on ? "badge-warning" : "badge-info";
+        return (
+          <span key={type} className={`badge ${cls}`} title={`${type}=${on ? "True" : "False"}`}>
+            {type}={on ? "True" : "False"}
+          </span>
+        );
+      })}
+    </>
+  );
 }

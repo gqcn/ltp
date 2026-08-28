@@ -78,6 +78,53 @@ func (s *serviceImpl) Get(ctx context.Context, id int64) (*Detail, error) {
 	}, nil
 }
 
+// ListIDsByUserID 返回用户加入的团队 ID。
+func (s *serviceImpl) ListIDsByUserID(ctx context.Context, userID int64) ([]int64, error) {
+	if userID <= 0 {
+		return []int64{}, nil
+	}
+	var rows []countRow
+	err := dao.SysTeamMember.Ctx(ctx).
+		Fields(dao.SysTeamMember.Columns().TeamId + " as team_id, 0 as count").
+		Where(do.SysTeamMember{UserId: userID}).
+		Scan(&rows)
+	if err != nil {
+		return nil, gerror.Wrap(err, "list team ids by user")
+	}
+	out := make([]int64, 0, len(rows))
+	seen := map[int64]struct{}{}
+	for _, row := range rows {
+		if row.TeamID <= 0 {
+			continue
+		}
+		if _, ok := seen[row.TeamID]; ok {
+			continue
+		}
+		seen[row.TeamID] = struct{}{}
+		out = append(out, row.TeamID)
+	}
+	return out, nil
+}
+
+// ListNameRefsByUserID 返回用户加入的团队名称。
+func (s *serviceImpl) ListNameRefsByUserID(ctx context.Context, userID int64) ([]NameRef, error) {
+	ids, err := s.ListIDsByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	names, err := s.MapByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]NameRef, 0, len(ids))
+	for _, id := range ids {
+		if ref, ok := names[id]; ok {
+			out = append(out, ref)
+		}
+	}
+	return out, nil
+}
+
 // MapByIDs 按 ID 批量返回团队名称。
 func (s *serviceImpl) MapByIDs(ctx context.Context, ids []int64) (map[int64]NameRef, error) {
 	out := make(map[int64]NameRef, len(ids))

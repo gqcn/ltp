@@ -141,6 +141,8 @@ type Service interface {
 	Handle(ctx context.Context, in HandleInput) error
 	// Summary 返回未完成数量。
 	Summary(ctx context.Context) (Summary, error)
+	// ListByClusterNodes 返回指定集群中 node_names 与给定节点有交集的告警，最多 50 条。
+	ListByClusterNodes(ctx context.Context, clusterID int64, nodes []string) ([]*Item, error)
 }
 
 var _ Service = (*serviceImpl)(nil)

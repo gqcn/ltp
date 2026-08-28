@@ -129,6 +129,8 @@ type Service interface {
 	CountQueuesByDatacenter(ctx context.Context, codes []string) (map[string]int, error)
 	// ListByTeamIDs 按团队批量返回关联队列。
 	ListByTeamIDs(ctx context.Context, teamIDs []int64) (map[int64][]team.QueueRef, error)
+	// ListInCluster 列出指定集群队列。allTeams 为真时返回该集群全部队列；否则仅返回关联 teamIDs 的队列。
+	ListInCluster(ctx context.Context, clusterID int64, teamIDs []int64, allTeams bool) ([]*Item, error)
 }
 
 var _ Service = (*serviceImpl)(nil)

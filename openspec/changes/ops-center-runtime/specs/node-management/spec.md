@@ -2,7 +2,12 @@
 
 ### Requirement: 节点列表来自工作集群的 Kubernetes 节点
 
-节点管理 MUST 按工作集群从`Kubernetes`实时列出节点，不得用业务表镜像节点库存。列表 MUST 支持按名称/IP 搜索、数据中心（含未分配）、状态（Ready / NotReady / SchedulingDisabled）、卡型号筛选，并在服务端分页。列表行 MUST 投影数据中心、可调度状态、隔离信息（含该节点最近一次成功隔离备注）、`GPU`/`CPU`/`内存`与标签摘要。装配 MUST 对当前集群一次列出节点与 Pod，禁止按节点循环调用 API；隔离备注 MUST 按当前页节点批量查询维护记录，禁止按节点循环查库。
+节点管理 MUST 按工作集群从`Kubernetes`实时列出节点，不得用业务表镜像节点库存。列表 MUST 支持按名称/IP 搜索、数据中心（含未分配）、状态（Ready / NotReady / SchedulingDisabled）、卡型号筛选，并在服务端分页。列表行 MUST 投影数据中心、可调度状态、隔离信息（含该节点最近一次成功隔离备注）、`GPU`/`CPU`/`内存`与标签摘要。状态列 MUST 展示`Ready`/`NotReady`，不可调度时追加`SchedulingDisabled`。宽表 MUST 在列表卡片内横向滚动，默认视口下`状态`、`Pods`、`隔离信息`列不得被右侧固定操作列完全挡住。装配 MUST 对当前集群一次列出节点与 Pod，禁止按节点循环调用 API；隔离备注 MUST 按当前页节点批量查询维护记录，禁止按节点循环查库。
+
+#### Scenario: 节点列表可见状态与隔离列
+
+- **WHEN** 运维在桌面宽度打开节点管理
+- **THEN** 表头可见`状态`、`Pods`、`隔离信息`，行内状态徽章可见
 
 #### Scenario: 未分配数据中心可筛选
 
@@ -37,7 +42,7 @@
 
 ### Requirement: 运维可整节点隔离与入池
 
-隔离 MUST 将节点`cordon`并添加故障污点`maip.io/fault=true:NoSchedule`。入池 MUST `uncordon`并移除该故障污点与对应标签。操作 MUST 二次确认，可选备注，并写入维护记录。维护记录页 MUST 按时间倒序列出隔离、入池、数据中心、标签、污点动作。
+隔离 MUST 将节点`cordon`并添加故障污点`maip.io/fault=true:NoSchedule`。入池 MUST `uncordon`并移除该故障污点与对应标签。操作 MUST 二次确认，可选备注，并写入维护记录。维护记录页 MUST 按时间倒序列出隔离、入池、数据中心、标签、污点动作。操作列与结果列 MUST 使用徽章，不得纯文本。节点详情 Conditions MUST 展示标准 kubelet 条件的`Type=True/False`（`Ready`、`MemoryPressure`、`DiskPressure`、`PIDPressure`、`NetworkUnavailable`）。
 
 #### Scenario: 隔离后节点不可调度
 

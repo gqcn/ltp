@@ -18,4 +18,20 @@ const (
 	GPUResourceName = "nvidia.com/gpu"
 	// CookieNameDefault 是默认会话 Cookie 名。
 	CookieNameDefault = "ltp_session"
+	// TrainingNamespace 是训练 Job 与 ConfigMap 使用的命名空间。
+	TrainingNamespace = "maip"
+	// LabelKeyManaged 标记平台创建的 Volcano Job。
+	LabelKeyManaged = "maip.io/managed"
+	// LabelKeyOwner 是任务运行用户账号标签。
+	LabelKeyOwner = "maip.io/owner"
+	// LabelKeyTeamID 是任务所属团队 ID 标签。
+	LabelKeyTeamID = "maip.io/team-id"
+	// AnnotationKeyPriority 是任务优先级注解。
+	AnnotationKeyPriority = "maip.io/priority"
+	// TrainingContainerName 是训练容器名。
+	TrainingContainerName = "training"
+	// TrainingTaskName 是 Volcano Job 唯一 task 名。
+	TrainingTaskName = "worker"
+	// TrainingMasterPort 是注入的 MASTER_PORT。
+	TrainingMasterPort = "23456"
 )

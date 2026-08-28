@@ -35,6 +35,6 @@ test("TC002 teams ldap config and role menus", async ({ page }) => {
   await page.getByRole("button", { name: "账户菜单" }).click();
   await page.getByTestId("logout-button").click();
   await loginAsLdap(page, "algo", "algo123");
-  await expect(page.getByRole("heading", { name: "暂无可用模块" })).toBeVisible();
-  await expect(page.getByText("数据中心")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "任务列表" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "数据中心" })).toHaveCount(0);
 });

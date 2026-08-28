@@ -8,7 +8,7 @@ import { listTeams } from "@/api/team";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
 import { ListBody, ListLoading } from "@/components/ListLoading";
-import { FieldError } from "@/components/Field";
+import { FieldError, FieldHelp } from "@/components/Field";
 import { Modal } from "@/components/Modal";
 import { Pagination } from "@/components/Pagination";
 import { errText, focusField, groupClass, invalidProps, LINE_MAX, useZodForm, zLine, zNonNegative, zRequired, zTextOpt, zVolcanoQueueName } from "@/lib/form";
@@ -724,14 +724,6 @@ export function QueuePage() {
     }
     setPending({ type: "delete", item: q });
   }
-}
-
-function FieldHelp({ tip, label }: { tip: string; label: string }) {
-  return (
-    <button type="button" className="field-help" title={tip} aria-label={label}>
-      ?
-    </button>
-  );
 }
 
 function gpuOptionsFor(data: CapacityPreview | undefined, features: string[], currentType = "") {

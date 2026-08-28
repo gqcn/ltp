@@ -116,6 +116,13 @@
 - [x] 18.2 覆盖数据中心、集群、节点、队列、告警、用户、团队、角色列表
 - [x] 18.3 E2E 延迟列表接口，断言加载文案出现且空态不出现
 
+## 19. 节点管理对齐原型列表与徽章（反馈）
+
+- [x] 19.1 页面根节点补`id="page-node-mgmt"`，宽表在卡片内横向滚动，露出`状态`/`Pods`/`隔离信息`
+- [x] 19.2 状态徽章展示`Ready`与`SchedulingDisabled`组合；维护记录操作/结果改徽章；详情 Conditions 展示标准 kubelet 条件
+- [x] 19.3 E2E 断言列表列可见、维护记录徽章、详情`Ready=True`
+- `.agents/rules/frontend-ui.md`与`.agents/rules/i18n.md`仍缺失：视觉对齐`prototype.css`。无数据库变更。无行级数据权限。架构模块边界无影响。
+
 ## 规则影响记录
 
 - 前端视觉以`prototype.v4`为准（`.agents/rules/frontend-ui.md`缺失）。引入无外观的表单/弹层库（`zod`、`react-hook-form`、`@radix-ui/react-dialog`）和已有的`sonner`，不引入 Ant Design / MUI 等会覆盖原型视觉的组件库。

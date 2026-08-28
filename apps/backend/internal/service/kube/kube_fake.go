@@ -15,14 +15,19 @@ import (
 
 // Fake 是可注入的 ClusterClient。
 type Fake struct {
-	mu             sync.Mutex
-	Version        string                   // 探测版本
-	APIServer      string                   // API Server
-	ProbeErr       error                    // 探测错误
-	Nodes          []NodeSnapshot           // 节点库存
-	Queues         map[string]QueueSnapshot // Queue 库存
-	Jobs           map[string]*VolcanoJob   // Job 库存，key 为 namespace/name
-	ListNodesCalls int                      // ListNodes 调用次数
+	mu              sync.Mutex
+	Version         string                       // 探测版本
+	APIServer       string                       // API Server
+	ProbeErr        error                        // 探测错误
+	Nodes           []NodeSnapshot               // 节点库存
+	Queues          map[string]QueueSnapshot     // Queue 库存
+	Jobs            map[string]*VolcanoJob       // Job 库存，key 为 namespace/name
+	Namespaces      map[string]bool              // 已确保的命名空间
+	ConfigMaps      map[string]map[string]string // ConfigMap 数据，key 为 namespace/name
+	ConfigMapOwners map[string][]OwnerRef        // ConfigMap 属主，key 同 ConfigMaps
+	Pods            map[string][]PodSnapshot     // Job Pod，key 为 namespace/job
+	Logs            map[string]string            // 容器日志，key 为 namespace/pod
+	ListNodesCalls  int                          // ListNodes 调用次数
 }
 
 var _ ClusterClient = (*Fake)(nil)
@@ -268,4 +273,88 @@ func cloneJob(job *VolcanoJob) *VolcanoJob {
 	cp := *job
 	cp.Annotations = cloneLabels(job.Annotations)
 	return &cp
+}
+
+// EnsureNamespace 记录命名空间。
+func (f *Fake) EnsureNamespace(ctx context.Context, name string) error {
+	_ = ctx
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.Namespaces == nil {
+		f.Namespaces = map[string]bool{}
+	}
+	f.Namespaces[name] = true
+	return nil
+}
+
+// ApplyConfigMap 写入内存 ConfigMap 与可选属主。
+func (f *Fake) ApplyConfigMap(ctx context.Context, namespace, name string, data map[string]string, owners []OwnerRef) error {
+	_ = ctx
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.ConfigMaps == nil {
+		f.ConfigMaps = map[string]map[string]string{}
+	}
+	copied := map[string]string{}
+	for key, value := range data {
+		copied[key] = value
+	}
+	key := namespace + "/" + name
+	f.ConfigMaps[key] = copied
+	if len(owners) > 0 {
+		if f.ConfigMapOwners == nil {
+			f.ConfigMapOwners = map[string][]OwnerRef{}
+		}
+		cloned := make([]OwnerRef, len(owners))
+		copy(cloned, owners)
+		f.ConfigMapOwners[key] = cloned
+	}
+	return nil
+}
+
+// DeleteConfigMap 删除内存 ConfigMap。
+func (f *Fake) DeleteConfigMap(ctx context.Context, namespace, name string) error {
+	_ = ctx
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	key := namespace + "/" + name
+	delete(f.ConfigMaps, key)
+	delete(f.ConfigMapOwners, key)
+	return nil
+}
+
+// AbortJob 将内存 Job 相位设为 Aborted；不存在视为成功。
+func (f *Fake) AbortJob(ctx context.Context, namespace, name string) error {
+	_ = ctx
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	item, ok := f.Jobs[jobKey(namespace, name)]
+	if !ok {
+		return nil
+	}
+	item.Phase = "Aborted"
+	return nil
+}
+
+// ListJobPods 返回预设 Pod。
+func (f *Fake) ListJobPods(ctx context.Context, namespace, jobName string) ([]PodSnapshot, error) {
+	_ = ctx
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	src := f.Pods[namespace+"/"+jobName]
+	out := make([]PodSnapshot, len(src))
+	copy(out, src)
+	return out, nil
+}
+
+// GetPodLogs 返回预设日志。
+func (f *Fake) GetPodLogs(ctx context.Context, namespace, podName string, tailLines int64) (string, error) {
+	_ = ctx
+	_ = tailLines
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if text, ok := f.Logs[namespace+"/"+podName]; ok {
+		return text, nil
+	}
+	return "", bizerr.New(CodePodNotFound)
 }

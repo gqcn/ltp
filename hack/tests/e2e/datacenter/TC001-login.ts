@@ -17,6 +17,6 @@ test("TC001 login success and failed password", async ({ page }) => {
 
   await loginAsAdmin(page);
   await expect(page.getByRole("heading", { name: "数据中心管理" })).toBeVisible();
-  await expect(page.getByText("任务列表")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "任务列表" })).toBeVisible();
   await expect(page.getByText("用户管理").first()).toBeVisible();
 });

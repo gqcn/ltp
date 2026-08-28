@@ -114,6 +114,10 @@ type Service interface {
 	RemoveMember(ctx context.Context, teamID int64, userID int64) error
 	// MapByIDs 按 ID 批量返回团队名称，缺失键不出现。
 	MapByIDs(ctx context.Context, ids []int64) (map[int64]NameRef, error)
+	// ListIDsByUserID 返回用户加入的团队 ID，无成员关系时返回空切片。
+	ListIDsByUserID(ctx context.Context, userID int64) ([]int64, error)
+	// ListNameRefsByUserID 返回用户加入的团队名称投影。
+	ListNameRefsByUserID(ctx context.Context, userID int64) ([]NameRef, error)
 	// BindQueues 注入队列投影，供详情展示关联队列。
 	BindQueues(queues QueueSource)
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 	batchv1alpha1 "volcano.sh/apis/pkg/apis/batch/v1alpha1"
+	"volcano.sh/apis/pkg/apis/helpers"
 )
 
 const (
@@ -101,6 +102,38 @@ type VolcanoJob struct {
 	Annotations     map[string]string // 注解副本
 }
 
+// OwnerRef 是 Kubernetes ownerReference 的窄投影，避免把 metav1 泄漏到调用方。
+type OwnerRef struct {
+	APIVersion string // 如 batch.volcano.sh/v1alpha1
+	Kind       string // 如 Job
+	Name       string // 对象名
+	UID        string // 对象 UID
+}
+
+// JobOwnerRef 由已创建的 Volcano Job 构造 ConfigMap 等附属对象的属主引用。
+func JobOwnerRef(job *VolcanoJob) OwnerRef {
+	if job == nil {
+		return OwnerRef{}
+	}
+	return OwnerRef{
+		APIVersion: helpers.JobKind.GroupVersion().String(),
+		Kind:       helpers.JobKind.Kind,
+		Name:       job.Name,
+		UID:        job.UID,
+	}
+}
+
+// PodSnapshot 是训练 Job 下属 Pod 投影。
+type PodSnapshot struct {
+	Name     string // Pod 名
+	Task     string // Volcano task 名
+	Index    int    // 副本序号
+	Node     string // 所在节点
+	Phase    string // Pod 相位
+	Restarts int32  // 重启次数
+	Role     string // Master / Worker
+}
+
 // NodePatch 描述一次节点变更。
 type NodePatch struct {
 	Labels        map[string]string // 合并写入；值为空表示删除键
@@ -134,6 +167,18 @@ type ClusterClient interface {
 	PatchJobAnnotations(ctx context.Context, namespace, name, resourceVersion string, annotations map[string]string) (*VolcanoJob, error)
 	// DeleteJob 以前台级联删除 Volcano Job；uid 非空时作为 UID 前提；不存在视为成功。
 	DeleteJob(ctx context.Context, namespace, name, uid string) error
+	// EnsureNamespace 创建命名空间；已存在视为成功。
+	EnsureNamespace(ctx context.Context, name string) error
+	// ApplyConfigMap 创建或更新 ConfigMap 数据。owners 非空时写入 ownerReferences，供 Job 删除时级联销毁。
+	ApplyConfigMap(ctx context.Context, namespace, name string, data map[string]string, owners []OwnerRef) error
+	// DeleteConfigMap 删除 ConfigMap；不存在视为成功。
+	DeleteConfigMap(ctx context.Context, namespace, name string) error
+	// AbortJob 通过 Volcano Command 中止 Job；已中止或不存在视为成功。
+	AbortJob(ctx context.Context, namespace, name string) error
+	// ListJobPods 按 volcano.sh/job-name 列出 Pod。
+	ListJobPods(ctx context.Context, namespace, jobName string) ([]PodSnapshot, error)
+	// GetPodLogs 返回容器最近日志；pod 不存在时返回 CodePodNotFound。
+	GetPodLogs(ctx context.Context, namespace, podName string, tailLines int64) (string, error)
 }
 
 // Factory 根据 Kubeconfig 构造集群客户端。

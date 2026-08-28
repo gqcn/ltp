@@ -22,6 +22,7 @@ import (
 	"github.com/gqcn/ltp/internal/controller/role"
 	"github.com/gqcn/ltp/internal/controller/system"
 	"github.com/gqcn/ltp/internal/controller/team"
+	"github.com/gqcn/ltp/internal/controller/training"
 	"github.com/gqcn/ltp/internal/controller/user"
 	"github.com/gqcn/ltp/internal/controller/webhook"
 	alertsvc "github.com/gqcn/ltp/internal/service/alert"
@@ -36,6 +37,8 @@ import (
 	queuesvc "github.com/gqcn/ltp/internal/service/queue"
 	rolesvc "github.com/gqcn/ltp/internal/service/role"
 	teamsvc "github.com/gqcn/ltp/internal/service/team"
+	traincfgsvc "github.com/gqcn/ltp/internal/service/traincfg"
+	trainjobsvc "github.com/gqcn/ltp/internal/service/trainjob"
 	usersvc "github.com/gqcn/ltp/internal/service/user"
 	"github.com/gqcn/ltp/pkg/logger"
 )
@@ -94,6 +97,14 @@ func httpFunc(ctx context.Context, _ *gcmd.Parser) error {
 	if err != nil {
 		return err
 	}
+	cfgSvc, err := traincfgsvc.New(teamSvc)
+	if err != nil {
+		return err
+	}
+	jobSvc, err := trainjobsvc.New(clusterSvc, queueSvc, teamSvc, userSvc, cfgSvc, alertSvc)
+	if err != nil {
+		return err
+	}
 	usageHub.Replace(dcsvc.NewLiveUsage(clusterSvc, queueSvc))
 	teamSvc.BindQueues(queueSvc)
 
@@ -103,26 +114,27 @@ func httpFunc(ctx context.Context, _ *gcmd.Parser) error {
 	}
 
 	var (
-		authCtrl    = auth.NewV1(authSvc, cookieName)
-		dcCtrl      = datacenter.NewV1(dcSvc)
-		healthCtrl  = health.NewV1()
-		userCtrl    = user.NewV1(userSvc, bizCtxSvc)
-		roleCtrl    = role.NewV1(roleSvc, bizCtxSvc)
-		teamCtrl    = team.NewV1(teamSvc)
-		systemCtrl  = system.NewV1(ldapSvc, userSvc, bizCtxSvc)
-		clusterCtrl = cluster.NewV1(clusterSvc)
-		nodeCtrl    = node.NewV1(nodeSvc, bizCtxSvc)
-		queueCtrl   = queue.NewV1(queueSvc)
-		alertCtrl   = alert.NewV1(alertSvc, bizCtxSvc)
-		webhookCtrl = webhook.NewV1(alertSvc)
-		s           = g.Server()
+		authCtrl     = auth.NewV1(authSvc, cookieName)
+		dcCtrl       = datacenter.NewV1(dcSvc)
+		healthCtrl   = health.NewV1()
+		userCtrl     = user.NewV1(userSvc, bizCtxSvc)
+		roleCtrl     = role.NewV1(roleSvc, bizCtxSvc)
+		teamCtrl     = team.NewV1(teamSvc)
+		systemCtrl   = system.NewV1(ldapSvc, userSvc, bizCtxSvc)
+		clusterCtrl  = cluster.NewV1(clusterSvc)
+		nodeCtrl     = node.NewV1(nodeSvc, bizCtxSvc)
+		queueCtrl    = queue.NewV1(queueSvc)
+		alertCtrl    = alert.NewV1(alertSvc, bizCtxSvc)
+		trainingCtrl = training.NewV1(jobSvc, cfgSvc, clusterSvc, teamSvc, userSvc, bizCtxSvc)
+		webhookCtrl  = webhook.NewV1(alertSvc)
+		s            = g.Server()
 	)
 	s.Group("/api", func(group *ghttp.RouterGroup) {
 		group.Middleware(mwSvc.CORS, mwSvc.Response, mwSvc.Ctx)
 		group.Bind(healthCtrl, authCtrl, webhookCtrl)
 		group.Group("/", func(protected *ghttp.RouterGroup) {
 			protected.Middleware(mwSvc.Auth, mwSvc.Permission)
-			protected.Bind(dcCtrl, userCtrl, roleCtrl, teamCtrl, systemCtrl, clusterCtrl, nodeCtrl, queueCtrl, alertCtrl)
+			protected.Bind(dcCtrl, userCtrl, roleCtrl, teamCtrl, systemCtrl, clusterCtrl, nodeCtrl, queueCtrl, alertCtrl, trainingCtrl)
 		})
 	})
 	enhanceOpenAPIDoc(s)

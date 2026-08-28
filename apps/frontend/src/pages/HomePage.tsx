@@ -4,7 +4,7 @@ export function HomePage() {
       <div className="page-header">
         <div>
           <h1>暂无可用模块</h1>
-          <p className="desc">当前账号可见的菜单分区尚未启用。训练中心将在后续迭代开放；请联系管理员调整角色，或使用平台管理员 / SRE 账号访问已上线模块。</p>
+          <p className="desc">当前账号可见的菜单分区尚未启用。请联系管理员调整角色。</p>
         </div>
       </div>
       <div className="card">

@@ -1,6 +1,6 @@
 # LTP
 
-`LTP`是大模型训练管理平台。当前交付登录（本地管理员与`LDAP`）、运维中心的数据中心 / 集群 / 节点 / 队列 / 告警，以及平台中心的用户 / 团队 / 角色 / 系统配置。
+`LTP`是大模型训练管理平台。当前交付登录（本地管理员与`LDAP`）、训练中心的任务 / 我的队列 / 配置管理、运维中心的数据中心 / 集群 / 节点 / 队列 / 告警，以及平台中心的用户 / 团队 / 角色 / 系统配置。
 
 ## 技术选型
 
@@ -28,15 +28,15 @@
 
 打开`http://127.0.0.1:5173`。停止前后端：`make stop`。本机`PostgreSQL`不随`make stop`退出；模拟`LDAP`用`make ldap.down`；`kind`集群用`make kind.down`。
 
-接入本地`kind`集群：执行`kind get kubeconfig --name ltp`，在「集群管理」粘贴完整`Kubeconfig`。`make kind.up`会创建`gpu-node-h200` / `gpu-node-h800` / `gpu-node-4090`三个模拟`GPU`节点（各 8 卡），节点管理应能看到`GPU`用量与型号，而不是只有`CPU`。创建队列后可用`kubectl --context kind-ltp get queue`核对`Volcano Queue`对象。`make kind.down`会删除集群中的`Queue`对象，库中的业务队列仍在，列表会提示找不到对应的`Volcano Queue`；在队列行点「重新同步」即可按库中额度写回。若本地已有旧的单节点`ltp`集群，需先`make kind.down`再`make kind.up`。实验室说明见`hack/deploy/kind/README.md`。
+接入本地`kind`集群：执行`kind get kubeconfig --name ltp`，在「集群管理」粘贴完整`Kubeconfig`。`make kind.up`会创建`gpu-node-h200` / `gpu-node-h800` / `gpu-node-4090`三个模拟`GPU`节点（各 8 卡），节点管理应能看到`GPU`用量与型号，而不是只有`CPU`。创建队列后可用`kubectl --context kind-ltp get queue`核对`Volcano Queue`对象。提交训练任务后可用`kubectl --context kind-ltp -n maip get jobs.batch.volcano.sh`核对`Volcano Job`。`make kind.down`会删除集群中的`Queue`对象，库中的业务队列仍在，列表会提示找不到对应的`Volcano Queue`；在队列行点「重新同步」即可按库中额度写回。若本地已有旧的单节点`ltp`集群，需先`make kind.down`再`make kind.up`。实验室说明见`hack/deploy/kind/README.md`。
 
 FastX 告警对接地址为`http://127.0.0.1:8000/api/webhooks/fastx/alerts`，字段映射与示例见`docs/ops/fastx-alert-webhook.md`。
 
 | 入口 | 账号 | 密码 | 可见范围 |
 | --- | --- | --- | --- |
-| 平台管理员 | `admin` | `admin123` | 运维中心 + 平台中心 |
-| LDAP | `sre` | `sre123` | 运维中心 |
-| LDAP | `algo` | `algo123` | 训练中心尚未启用，进入空态页 |
+| 平台管理员 | `admin` | `admin123` | 训练中心 + 运维中心 + 平台中心 |
+| LDAP | `sre` | `sre123` | 训练中心 + 运维中心 |
+| LDAP | `algo` | `algo123` | 训练中心 |
 
 模拟目录`Bind DN`为`cn=admin,dc=msxf,dc=com`，密码`admin`。尚未加入平台的目录用户（如`sunlei` / `ldap123`）可在用户管理中「从 LDAP 添加」。
 
@@ -72,5 +72,6 @@ openspec/          变更提案与规格
 - 队列管理：业务队列同步`Volcano Queue`
 - 告警中心：`FastX` Webhook 入库与处理
 - 平台中心：用户、团队、角色、系统配置（`LDAP`）
+- 训练中心：任务列表 / 新建 / 详情（`Volcano Job`）、我的队列、配置集草稿与版本；任务详情中的日志检索（`ES`）与任务监控（`Grafana`）本迭代为占位
 
-后续变更才会开放：集群概览与训练中心。
+后续变更才会开放：集群概览与实验分析。

@@ -5,7 +5,7 @@ import { logout, type SessionUser } from "@/api/auth";
 import { getAlertSummary } from "@/api/alert";
 import type { Cluster } from "@/api/cluster";
 import { Modal } from "@/components/Modal";
-import { canVisit, MENU_OPS, MENU_PLATFORM } from "@/lib/access";
+import { canVisit, MENU_OPS, MENU_PLATFORM, MENU_TRAINING } from "@/lib/access";
 import { applySidebarCollapsed, readSidebarCollapsed, toggleTheme, readTheme } from "@/lib/theme";
 import { adminShellMeta } from "@/lib/format";
 import { statusDot } from "@/lib/resources";
@@ -16,7 +16,7 @@ type Props = {
   user: SessionUser;
 };
 
-const breadcrumbs: Record<string, { current: string; suffix?: string }> = {
+const breadcrumbs: Record<string, { current: string; suffix?: string; parent?: { label: string; to: string } }> = {
   "/home": { current: "工作台" },
   "/ops/datacenters": { current: "数据中心", suffix: "全局视图" },
   "/ops/clusters": { current: "集群管理", suffix: "跨集群视图" },
@@ -27,9 +27,21 @@ const breadcrumbs: Record<string, { current: string; suffix?: string }> = {
   "/platform/teams": { current: "团队管理" },
   "/platform/roles": { current: "角色管理" },
   "/platform/system": { current: "系统配置" },
+  "/training/jobs": { current: "任务列表" },
+  "/training/jobs/new": { current: "创建任务", parent: { label: "任务列表", to: "/training/jobs" } },
+  "/training/queues": { current: "我的队列" },
+  "/training/configs": { current: "配置管理" },
+  "/training/configs/new": { current: "新建配置集", parent: { label: "配置管理", to: "/training/configs" } },
 };
 
-const workspaceClusterPages = new Set(["/ops/nodes", "/ops/queues", "/ops/alerts"]);
+const workspaceClusterPages = new Set([
+  "/ops/nodes",
+  "/ops/queues",
+  "/ops/alerts",
+  "/training/jobs",
+  "/training/jobs/new",
+  "/training/queues",
+]);
 
 export function AppShell({ user }: Props) {
   const navigate = useNavigate();
@@ -59,10 +71,25 @@ export function AppShell({ user }: Props) {
   const shellUser = adminShellMeta(user);
   const showOps = canVisit(user, MENU_OPS);
   const showPlatform = canVisit(user, MENU_PLATFORM);
-  const crumb = breadcrumbs[location.pathname] || { current: "控制台" };
+  const showTraining = canVisit(user, MENU_TRAINING);
+  const rerunId = Number(new URLSearchParams(location.search).get("rerun") || 0);
+  const crumb =
+    location.pathname === "/training/jobs/new" && rerunId > 0
+      ? { current: "重跑任务", parent: { label: "任务列表", to: "/training/jobs" } }
+      : breadcrumbs[location.pathname] ||
+        (/^\/training\/jobs\/\d+$/.test(location.pathname)
+          ? { current: "任务详情", parent: { label: "任务列表", to: "/training/jobs" } }
+          : /^\/training\/configs\/\d+\/edit$/.test(location.pathname)
+            ? { current: "发布新版本", parent: { label: "配置管理", to: "/training/configs" } }
+            : /^\/training\/configs\/\d+$/.test(location.pathname)
+              ? { current: "配置集", parent: { label: "配置管理", to: "/training/configs" } }
+              : { current: "控制台" });
   const fillViewport = location.pathname === "/platform/system";
-  const { clusters, clusterId, current: workingCluster, select } = useWorkingCluster();
-  const showClusterSelect = showOps && clusters.length > 0 && workspaceClusterPages.has(location.pathname);
+  const clusterSource = location.pathname.startsWith("/training") ? "training" : "ops";
+  const { clusters, clusterId, current: workingCluster, select } = useWorkingCluster(clusterSource);
+  const onTrainingWorkspace =
+    location.pathname.startsWith("/training/jobs") || location.pathname === "/training/queues";
+  const showClusterSelect = clusters.length > 0 && (workspaceClusterPages.has(location.pathname) || onTrainingWorkspace);
   const alertSummary = useQuery({
     queryKey: ["alert-summary"],
     queryFn: getAlertSummary,
@@ -82,6 +109,41 @@ export function AppShell({ user }: Props) {
           </div>
         </div>
         <nav className="sidebar-nav">
+          {showTraining ? (
+            <div className="nav-section" data-nav-section="training">
+              <div className="nav-section-title">训练中心</div>
+              <NavLink to="/training/jobs" end className={({ isActive }) => (isActive || /\/training\/jobs\/\d+/.test(location.pathname) ? "nav-item active" : "nav-item")}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 6h16M4 12h16M4 18h10" />
+                  <circle cx="18" cy="18" r="3" />
+                </svg>
+                <span className="nav-item-label">任务列表</span>
+              </NavLink>
+              <NavLink to="/training/jobs/new" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 5v14M5 12h14" />
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                </svg>
+                <span className="nav-item-label">新建任务</span>
+              </NavLink>
+              <NavLink to="/training/queues" className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 6h16M4 12h12M4 18h8" />
+                  <circle cx="19" cy="18" r="3" />
+                  <path d="M19 16.5v3M17.5 18h3" />
+                </svg>
+                <span className="nav-item-label">我的队列</span>
+              </NavLink>
+              <NavLink to="/training/configs" className={({ isActive }) => (isActive || location.pathname.startsWith("/training/configs/") ? "nav-item active" : "nav-item")}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 2v6h6" />
+                  <path d="M8 13h8M8 17h5" />
+                </svg>
+                <span className="nav-item-label">配置管理</span>
+              </NavLink>
+            </div>
+          ) : null}
           {showOps ? (
             <div className="nav-section" data-nav-section="ops">
               <div className="nav-section-title">运维中心</div>
@@ -242,6 +304,12 @@ export function AppShell({ user }: Props) {
               </svg>
             </button>
             <div className="breadcrumb">
+              {crumb.parent ? (
+                <>
+                  <NavLink to={crumb.parent.to}>{crumb.parent.label}</NavLink>
+                  <span className="sep">/</span>
+                </>
+              ) : null}
               <span className="current">{crumb.current}</span>
               {crumb.suffix ? (
                 <>
@@ -304,8 +372,8 @@ export function AppShell({ user }: Props) {
         <div className="cluster-switch-impact">
           <div className="cluster-switch-impact-title">切换后将整体切换以下数据视图</div>
           <ul className="cluster-switch-impact-list">
-            <li>节点管理</li>
-            <li>队列管理 · 告警中心（按工作集群过滤）</li>
+            <li>节点管理 · 队列管理 · 告警中心</li>
+            <li>训练中心任务列表、新建任务、我的队列</li>
             <li>未保存的筛选条件可能被重置</li>
           </ul>
         </div>

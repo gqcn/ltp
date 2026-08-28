@@ -31,21 +31,6 @@ export function formatBytes(bytes: number) {
   return `${gi.toFixed(1)} GiB`;
 }
 
-export function shortGpuType(name: string) {
-  const text = String(name || "").trim();
-  if (!text) {
-    return "GPU";
-  }
-  if (/4090/i.test(text)) {
-    return "4090";
-  }
-  const match = text.match(/^(H\d+|B\d+|A\d+|L\d+)/i);
-  if (match) {
-    return match[1].toUpperCase();
-  }
-  return text.replace(/^NVIDIA-GeForce-RTX-/i, "") || "GPU";
-}
-
 export function usageText(used: number, total: number, format: (n: number) => string = String) {
   return `${format(used)} / ${format(total)}`;
 }

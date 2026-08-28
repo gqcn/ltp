@@ -223,6 +223,15 @@ export function AlertPage() {
                         处理节点
                       </Button>
                     ) : null}
+                    {a.nodeNames ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => navigate(`/training/jobs?node=${encodeURIComponent(a.nodeNames.split(",")[0]?.trim() || "")}`)}
+                      >
+                        查看任务
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               </div>

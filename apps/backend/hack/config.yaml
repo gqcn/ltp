@@ -25,7 +25,11 @@ gfcli:
           ops_queue,
           ops_queue_team,
           ops_node_event,
-          ops_alert
+          ops_alert,
+          train_job,
+          train_config_set,
+          train_config_version,
+          train_config_draft
         descriptionTag: true
         noModelComment: true
   docker:

@@ -90,6 +90,47 @@ func (s *serviceImpl) CountQueuesByDatacenter(ctx context.Context, codes []strin
 	return out, nil
 }
 
+const maxInCluster = 200
+
+// ListInCluster 按集群返回完整队列投影。
+func (s *serviceImpl) ListInCluster(ctx context.Context, clusterID int64, teamIDs []int64, allTeams bool) ([]*Item, error) {
+	if clusterID <= 0 {
+		return []*Item{}, nil
+	}
+	mod := dao.OpsQueue.Ctx(ctx).Where(do.OpsQueue{ClusterId: clusterID})
+	if !allTeams {
+		if len(teamIDs) == 0 {
+			return []*Item{}, nil
+		}
+		var links []teamLinkRow
+		err := dao.OpsQueueTeam.Ctx(ctx).
+			Fields(dao.OpsQueueTeam.Columns().QueueId+", "+dao.OpsQueueTeam.Columns().TeamId).
+			WhereIn(dao.OpsQueueTeam.Columns().TeamId, teamIDs).
+			Scan(&links)
+		if err != nil {
+			return nil, gerror.Wrap(err, "list queue teams for cluster")
+		}
+		queueIDs := make([]int64, 0, len(links))
+		seen := map[int64]struct{}{}
+		for _, link := range links {
+			if _, ok := seen[link.QueueID]; ok {
+				continue
+			}
+			seen[link.QueueID] = struct{}{}
+			queueIDs = append(queueIDs, link.QueueID)
+		}
+		if len(queueIDs) == 0 {
+			return []*Item{}, nil
+		}
+		mod = mod.WhereIn(dao.OpsQueue.Columns().Id, queueIDs)
+	}
+	var rows []*entity.OpsQueue
+	if err := mod.OrderDesc(dao.OpsQueue.Columns().Id).Limit(maxInCluster).Scan(&rows); err != nil {
+		return nil, gerror.Wrap(err, "list queues in cluster")
+	}
+	return s.projectItems(ctx, rows)
+}
+
 // ListByTeamIDs 按团队批量返回关联队列。
 func (s *serviceImpl) ListByTeamIDs(ctx context.Context, teamIDs []int64) (map[int64][]team.QueueRef, error) {
 	out := make(map[int64][]team.QueueRef, len(teamIDs))

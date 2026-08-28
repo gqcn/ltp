@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { readSession, type SessionUser } from "@/api/auth";
-import { canVisit, homePath, MENU_OPS, MENU_PLATFORM } from "@/lib/access";
+import { canVisit, homePath, MENU_OPS, MENU_PLATFORM, MENU_TRAINING } from "@/lib/access";
 import { AppShell } from "@/layout/AppShell";
 import { ListLoading } from "@/components/ListLoading";
 import { AlertPage } from "@/pages/AlertPage";
@@ -16,6 +16,13 @@ import { RolePage } from "@/pages/RolePage";
 import { SystemConfigPage } from "@/pages/SystemConfigPage";
 import { TeamPage } from "@/pages/TeamPage";
 import { UserPage } from "@/pages/UserPage";
+import { JobListPage } from "@/pages/JobListPage";
+import { JobCreatePage } from "@/pages/JobCreatePage";
+import { JobDetailPage } from "@/pages/JobDetailPage";
+import { MyQueuesPage } from "@/pages/MyQueuesPage";
+import { ConfigListPage } from "@/pages/ConfigListPage";
+import { ConfigEditPage } from "@/pages/ConfigEditPage";
+import { ConfigDetailPage } from "@/pages/ConfigDetailPage";
 
 function Guard({ user, menu, children }: { user: SessionUser; menu: string; children: ReactNode }) {
   if (!canVisit(user, menu)) {
@@ -49,6 +56,86 @@ export function App() {
       <Route path="/" element={signedIn && user ? <AppShell user={user} /> : <Navigate to="/login" replace />}>
         <Route index element={<Navigate to={landing} replace />} />
         <Route path="home" element={<HomePage />} />
+        <Route
+          path="training/jobs"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_TRAINING}>
+                <JobListPage />
+              </Guard>
+            ) : null
+          }
+        />
+        <Route
+          path="training/jobs/new"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_TRAINING}>
+                <JobCreatePage />
+              </Guard>
+            ) : null
+          }
+        />
+        <Route
+          path="training/jobs/:id"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_TRAINING}>
+                <JobDetailPage />
+              </Guard>
+            ) : null
+          }
+        />
+        <Route
+          path="training/queues"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_TRAINING}>
+                <MyQueuesPage />
+              </Guard>
+            ) : null
+          }
+        />
+        <Route
+          path="training/configs"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_TRAINING}>
+                <ConfigListPage />
+              </Guard>
+            ) : null
+          }
+        />
+        <Route
+          path="training/configs/new"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_TRAINING}>
+                <ConfigEditPage />
+              </Guard>
+            ) : null
+          }
+        />
+        <Route
+          path="training/configs/:id/edit"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_TRAINING}>
+                <ConfigEditPage />
+              </Guard>
+            ) : null
+          }
+        />
+        <Route
+          path="training/configs/:id"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_TRAINING}>
+                <ConfigDetailPage />
+              </Guard>
+            ) : null
+          }
+        />
         <Route
           path="ops/datacenters"
           element={

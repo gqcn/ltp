@@ -12,7 +12,7 @@ import { Pagination } from "@/components/Pagination";
 import { errText, groupClass, invalidProps, LINE_MAX, useZodForm, zLine, zRequired, zTextOpt } from "@/lib/form";
 import { DcBadge, UsageCell } from "@/components/UsageCell";
 import { formatTime } from "@/lib/format";
-import { bytesToGi, milliToCores, shortGpuType } from "@/lib/resources";
+import { bytesToGi, milliToCores } from "@/lib/resources";
 import { toast } from "@/lib/toast";
 import { useWorkingCluster } from "@/lib/useWorkingCluster";
 
@@ -172,7 +172,7 @@ export function ClusterPage() {
           >
             <>
               <div className="table-wrap">
-                <table className="table">
+                <table className="table cluster-list-table">
                   <thead>
                     <tr>
                       <th>集群</th>
@@ -194,7 +194,7 @@ export function ClusterPage() {
                             {item.displayName}
                           </button>
                           {item.description ? (
-                            <div className="text-muted" style={{ fontSize: 11.5, marginTop: 4, maxWidth: 280, lineHeight: 1.4 }}>
+                            <div className="text-muted cluster-list-desc">
                               {item.description}
                             </div>
                           ) : null}
@@ -430,8 +430,8 @@ function ClusterGpuCell({ item }: { item: Cluster }) {
     <div className="cls-gpu-type-list">
       {types.map((g) => (
         <div key={g.type} className="cls-gpu-type-row" title={`${g.type} ${g.used}/${g.total}`}>
-          <span className="cls-gpu-type-name">{shortGpuType(g.type)}</span>
-          <UsageCell used={g.used} total={g.total} label={shortGpuType(g.type)} />
+          <span className="cls-gpu-type-name">{g.type}</span>
+          <UsageCell used={g.used} total={g.total} label={g.type} />
         </div>
       ))}
     </div>

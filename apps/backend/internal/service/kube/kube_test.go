@@ -17,6 +17,46 @@ import (
 	"github.com/gqcn/ltp/pkg/bizerr"
 )
 
+func TestFakeApplyConfigMapRecordsOwner(t *testing.T) {
+	ctx := context.Background()
+	fake := &Fake{}
+	owner := OwnerRef{APIVersion: "batch.volcano.sh/v1alpha1", Kind: "Job", Name: "demo", UID: "uid-1"}
+	if err := fake.ApplyConfigMap(ctx, "maip", "demo-cfg-0", map[string]string{"a.yaml": "x: 1"}, []OwnerRef{owner}); err != nil {
+		t.Fatal(err)
+	}
+	got := fake.ConfigMapOwners["maip/demo-cfg-0"]
+	if len(got) != 1 || got[0].UID != "uid-1" || got[0].Name != "demo" || got[0].Kind != "Job" {
+		t.Fatalf("owners=%+v", got)
+	}
+}
+
+func TestJobOwnerRefUsesVolcanoJobGVK(t *testing.T) {
+	ref := JobOwnerRef(&VolcanoJob{Name: "demo", UID: "uid-9"})
+	if ref.Name != "demo" || ref.UID != "uid-9" || ref.Kind == "" || ref.APIVersion == "" {
+		t.Fatalf("ref=%+v", ref)
+	}
+}
+
+func TestFakeAbortJobAndNamespace(t *testing.T) {
+	ctx := context.Background()
+	fake := &Fake{Jobs: map[string]*VolcanoJob{"maip/demo": {Namespace: "maip", Name: "demo", Phase: "Running"}}}
+	if err := fake.EnsureNamespace(ctx, "maip"); err != nil {
+		t.Fatal(err)
+	}
+	if !fake.Namespaces["maip"] {
+		t.Fatal("namespace not recorded")
+	}
+	if err := fake.AbortJob(ctx, "maip", "demo"); err != nil {
+		t.Fatal(err)
+	}
+	if fake.Jobs["maip/demo"].Phase != "Aborted" {
+		t.Fatalf("phase=%s", fake.Jobs["maip/demo"].Phase)
+	}
+	if err := fake.AbortJob(ctx, "maip", "missing"); err != nil {
+		t.Fatalf("missing job should be success: %v", err)
+	}
+}
+
 func TestRestConfigFromContentBearerToken(t *testing.T) {
 	raw := []byte(`apiVersion: v1
 kind: Config
