@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
+import { Controller } from "react-hook-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
-import { createJob, getJob, listConfigs, listMyQueues, listRunUsers, listTrainingTeams, type MyQueue, type RunUser } from "@/api/training";
+import { createJob, getConfig, getConfigVersion, getJob, listConfigs, listMyQueues, listRunUsers, listTrainingTeams, type ConfigFile, type ConfigItem, type MyQueue, type RunUser } from "@/api/training";
 import { readSession } from "@/api/auth";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
+import { CodeEditor, CodeViewer } from "@/components/CodeEditor";
 import { FieldError, FieldHelp } from "@/components/Field";
+import { Modal } from "@/components/Modal";
+import { cn } from "@/lib/cn";
 import { errText, groupClass, invalidProps, K8S_QNAME_MAX, useZodForm, zRequired, zVolcanoJobName } from "@/lib/form";
 import { initials } from "@/lib/format";
 import { quotaBarClass } from "@/lib/resources";
@@ -58,6 +62,69 @@ function parseEnv(text: string) {
 }
 
 const WORKDIR_PLACEHOLDER = "/data/hpc/home/<运行用户>";
+const CONFIG_MOUNT_PATH_PATTERN = "/data/hpc/home/<username>/experiments/<任务名称>/configs/";
+const LATEST_AT_SUBMIT = "latest_at_submit";
+
+type MountVersion = number | typeof LATEST_AT_SUBMIT;
+type MountMode = "dir" | "files";
+type MountDraft = {
+  uid: string;
+  setId: number;
+  version: MountVersion;
+  mode: MountMode;
+  mountPath: string;
+  selected: string[] | null;
+  preview: boolean;
+  isPlatformGenerated: boolean;
+};
+
+function jobNameForConfigPath(taskName: string) {
+  return (
+    taskName
+      .trim()
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "unnamed"
+  );
+}
+
+function defaultConfigMountPath(username: string, taskName: string) {
+  const user = username.trim() || "<username>";
+  return `/data/hpc/home/${user}/experiments/${jobNameForConfigPath(taskName)}/configs`;
+}
+
+function normalizeMountPath(path: string) {
+  return path.trim().replace(/\/+$/, "") || "/";
+}
+
+function isPlatformGeneratedMountPath(path: string) {
+  const p = normalizeMountPath(path);
+  return p === "/workspace/configs" || /^\/data\/hpc\/home\/[^/]+\/experiments\/[^/]+\/configs$/.test(p);
+}
+
+function mountPathsConflict(a: string, b: string) {
+  const left = normalizeMountPath(a);
+  const right = normalizeMountPath(b);
+  return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+}
+
+function commandNeedsConfigsHint(command: string) {
+  return /(^|[\s=])configs\//.test(command || "");
+}
+
+function newMountDraft(username: string, taskName: string, partial: Partial<MountDraft> = {}): MountDraft {
+  const generated = defaultConfigMountPath(username, taskName);
+  const mountPath = partial.mountPath || generated;
+  return {
+    uid: partial.uid || `m${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    setId: partial.setId || 0,
+    version: partial.version ?? LATEST_AT_SUBMIT,
+    mode: partial.mode || "dir",
+    mountPath,
+    selected: partial.selected ?? null,
+    preview: Boolean(partial.preview),
+    isPlatformGenerated: partial.isPlatformGenerated ?? isPlatformGeneratedMountPath(mountPath),
+  };
+}
 
 function defaultWorkdir(username: string) {
   const user = username.trim();
@@ -87,7 +154,8 @@ export function JobCreatePage() {
   const [runQuery, setRunQuery] = useState("");
   const [runUser, setRunUser] = useState<RunUser | null>(null);
   const [runPickerOpen, setRunPickerOpen] = useState(false);
-  const [mounts, setMounts] = useState<{ setId: number; version: number; mountPath: string }[]>([]);
+  const [mounts, setMounts] = useState<MountDraft[]>([]);
+  const [pendingUnmount, setPendingUnmount] = useState<MountDraft | null>(null);
   const runSearchRef = useRef<HTMLInputElement>(null);
   const workdirDefaultRef = useRef("");
   const rerunFilledRef = useRef(0);
@@ -168,7 +236,17 @@ export function JobCreatePage() {
       command: job.command,
       envText: (job.env || []).map((e) => `${e.key}=${e.value}`).join("\n"),
     });
-    setMounts((job.mounts || []).map((m) => ({ setId: m.setId, version: m.version, mountPath: m.mountPath })));
+    const username = job.ownerUsername || user?.username || "";
+    const nextName = rerunJobName(job.name);
+    setMounts(
+      (job.mounts || []).map((m) =>
+        newMountDraft(username, nextName, {
+          setId: m.setId,
+          version: m.version,
+          mountPath: isPlatformGeneratedMountPath(m.mountPath) ? defaultConfigMountPath(username, nextName) : m.mountPath,
+        }),
+      ),
+    );
     workdirDefaultRef.current = workdir;
     if (!isAdmin || !job.ownerUsername) return;
     void listRunUsers({ keyword: job.ownerUsername, pageNum: 1, pageSize: 20 }).then((res) => {
@@ -185,15 +263,29 @@ export function JobCreatePage() {
     if (!presetConfig || mounts.length) return;
     const cfg = (configsQuery.data?.list ?? []).find((c) => c.id === presetConfig && c.latestVersion > 0);
     if (!cfg) return;
-    const username = runUser?.username || user?.username || "user";
+    const username = runUser?.username || user?.username || "";
+    const taskName = methods.getValues("name");
     setMounts([
-      {
+      newMountDraft(username, taskName, {
         setId: cfg.id,
-        version: presetConfigVer || cfg.latestVersion,
-        mountPath: `/data/hpc/home/${username}/experiments/${methods.getValues("name") || "job"}/configs`,
-      },
+        version: presetConfigVer || LATEST_AT_SUBMIT,
+      }),
     ]);
   }, [presetConfig, configsQuery.data, mounts.length, runUser?.username, user?.username, methods]);
+
+  const configUsername = runUser?.username || (!isAdmin ? user?.username || "" : "");
+  useEffect(() => {
+    const next = defaultConfigMountPath(configUsername, form.name);
+    setMounts((all) => {
+      let changed = false;
+      const mapped = all.map((m) => {
+        if (!m.isPlatformGenerated || m.mountPath === next) return m;
+        changed = true;
+        return { ...m, mountPath: next };
+      });
+      return changed ? mapped : all;
+    });
+  }, [configUsername, form.name]);
 
   const queues = (queuesQuery.data?.list ?? []).filter((q) => {
     if (form.teamId && q.teams.every((t) => t.id !== form.teamId)) return false;
@@ -217,7 +309,18 @@ export function JobCreatePage() {
         image: form.image,
         command: form.command,
         env: parseEnv(form.envText),
-        mounts: mounts.filter((m) => m.setId && m.version),
+        mounts: mounts.flatMap((m) => {
+          const version = m.version === LATEST_AT_SUBMIT
+            ? (configsQuery.data?.list ?? []).find((c) => c.id === m.setId)?.latestVersion || 0
+            : m.version;
+          if (!m.setId || !version) return [];
+          return [{
+            setId: m.setId,
+            version,
+            mountPath: m.mountPath,
+            files: m.mode === "files" ? m.selected ?? undefined : undefined,
+          }];
+        }),
         runUserId: isAdmin ? runUser?.id : undefined,
         rerunFromId: rerunId || undefined,
       }),
@@ -571,7 +674,27 @@ export function JobCreatePage() {
                       <FieldHelp tip="填写训练进程入口。可直接引用平台注入的 $MASTER_ADDR、$MASTER_PORT、$WORLD_SIZE、$RANK、$GPU_NUM。" label="启动命令说明" />
                     </div>
                     <div className="code-editor code-editor--field code-editor--cmd">
-                      <textarea id="create-command" className="code-editor-input" rows={5} {...methods.register("command")} placeholder="torchrun --nproc_per_node=$GPU_NUM --nnodes=$WORLD_SIZE ..." />
+                      <Controller
+                        name="command"
+                        control={methods.control}
+                        render={({ field }) => (
+                          <CodeEditor
+                            id="create-command"
+                            language="shell"
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            inputRef={field.ref}
+                            placeholder="torchrun --nproc_per_node=$GPU_NUM --nnodes=$WORLD_SIZE ..."
+                            wrap
+                            lineNumbers={false}
+                            minHeight={108}
+                            invalid={Boolean(commandError)}
+                            aria-label="启动命令"
+                            aria-describedby={commandError ? "create-command-error" : undefined}
+                          />
+                        )}
+                      />
                     </div>
                     <FieldError id="create-command-error">{commandError}</FieldError>
                     <div className="builtin-env-note">
@@ -594,43 +717,64 @@ export function JobCreatePage() {
                       <FieldHelp tip="用户自定义变量，每行一个 KEY=VALUE。$MASTER_ADDR、$GPU_NUM 等由平台注入，无需在此重复填写。" label="环境变量说明" />
                     </div>
                     <div className="code-editor code-editor--field code-editor--env">
-                      <textarea rows={4} className="code-editor-input" {...methods.register("envText")} placeholder="EPOCHS=1000" />
+                      <Controller
+                        name="envText"
+                        control={methods.control}
+                        render={({ field }) => (
+                          <CodeEditor
+                            language="env"
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            inputRef={field.ref}
+                            placeholder="EPOCHS=1000"
+                            wrap
+                            lineNumbers={false}
+                            minHeight={120}
+                            aria-label="环境变量"
+                          />
+                        )}
+                      />
                     </div>
                   </div>
                 </div>
               </div>
               <div className="tab-panel create-form-section" id="create-section-configs" data-panel="configs">
                 <div className="form-section-title"><span className="num">4</span> 配置挂载</div>
-                {mounts.map((m, idx) => (
-                  <div key={idx} className="cfg-mount-card">
-                    <div className="cfg-mount-card-head">
-                      <strong style={{ fontSize: 13 }}>配置集挂载</strong>
-                      <Button variant="danger" size="sm" onClick={() => setMounts((all) => all.filter((_, i) => i !== idx))}>删除</Button>
-                    </div>
-                    <div className="cfg-mount-grid">
-                      <div className="form-group">
-                        <label>配置集</label>
-                        <select value={m.setId} onChange={(e) => setMounts((all) => all.map((x, i) => (i === idx ? { ...x, setId: Number(e.target.value), version: configsQuery.data?.list.find((c) => c.id === Number(e.target.value))?.latestVersion || 1 } : x)))}>
-                          <option value={0}>选择配置集</option>
-                          {(configsQuery.data?.list ?? []).filter((c) => c.latestVersion > 0).map((c) => (
-                            <option key={c.id} value={c.id}>{c.displayName}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="form-group">
-                        <label>挂载路径</label>
-                        <input className="mono" value={m.mountPath} onChange={(e) => setMounts((all) => all.map((x, i) => (i === idx ? { ...x, mountPath: e.target.value } : x)))} placeholder="挂载路径" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <button type="button" className="cfg-add-mount" onClick={() => setMounts((all) => [...all, { setId: 0, version: 1, mountPath: `/data/hpc/home/${runUser?.username || user?.username || "user"}/experiments/${form.name || "job"}/configs` }])}>
+                <div id="create-config-mounts">
+                  {mounts.map((m) => (
+                    <ConfigMountCard
+                      key={m.uid}
+                      mount={m}
+                      configs={(configsQuery.data?.list ?? []).filter((c) => c.latestVersion > 0)}
+                      defaultPath={defaultConfigMountPath(configUsername, form.name)}
+                      conflict={mounts.some((other) => other.uid !== m.uid && mountPathsConflict(m.mountPath, other.mountPath))}
+                      onChange={(next) => setMounts((all) => all.map((x) => (x.uid === next.uid ? next : x)))}
+                      onDelete={() => setPendingUnmount(m)}
+                    />
+                  ))}
+                </div>
+                <div
+                  id="create-config-hint"
+                  className="cfg-mount-hint"
+                  hidden={!(commandNeedsConfigsHint(form.command) && mounts.length > 0 && !mounts.some((m) => normalizeMountPath(m.mountPath) === defaultConfigMountPath(configUsername, form.name)))}
+                >
+                  启动命令引用了相对路径 configs/，当前挂载不在 {CONFIG_MOUNT_PATH_PATTERN}。请改用绝对 --config，或改回平台默认路径。
+                </div>
+                <button
+                  type="button"
+                  className={cn("cfg-add-mount", mounts.length > 0 && "is-compact")}
+                  id="btn-add-config-mount"
+                  onClick={() => setMounts((all) => [...all, newMountDraft(configUsername, form.name)])}
+                >
                   <span className="cfg-add-mount-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
                   </span>
                   <span className="cfg-add-mount-copy">
-                    <span className="cfg-add-mount-title">添加配置集</span>
-                    <span className="cfg-add-mount-desc">从配置管理选择一版 YAML，只读挂到容器内指定路径</span>
+                    <span className="cfg-add-mount-title">{mounts.length ? "继续添加配置集" : "添加配置集"}</span>
+                    <span className="cfg-add-mount-desc">
+                      {mounts.length ? "可再挂另一套配置；路径不能相同或互为前缀" : `从配置管理选择一版 YAML，默认挂到 ${CONFIG_MOUNT_PATH_PATTERN}`}
+                    </span>
                   </span>
                   <span className="cfg-add-mount-chevron" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
@@ -646,6 +790,194 @@ export function JobCreatePage() {
           </div>
         </div>
       </div>
+      <Modal
+        open={Boolean(pendingUnmount)}
+        title="确认删除挂载"
+        confirmText="确认删除"
+        confirmVariant="danger"
+        modalClassName="modal-confirm"
+        onClose={() => setPendingUnmount(null)}
+        onConfirm={() => {
+          if (!pendingUnmount) return;
+          setMounts((all) => all.filter((x) => x.uid !== pendingUnmount.uid));
+          setPendingUnmount(null);
+          toast.success("已删除配置挂载");
+        }}
+      >
+        <p className="modal-msg">
+          确定删除这条配置文件挂载
+          <strong> {(configsQuery.data?.list ?? []).find((c) => c.id === pendingUnmount?.setId)?.displayName || "未选择配置集"} </strong>
+          吗？
+        </p>
+        <p className="modal-hint is-warning">删除后提交任务将不再挂载该配置集，可随时重新添加。</p>
+      </Modal>
     </section>
+  );
+}
+
+function ConfigMountCard({
+  mount,
+  configs,
+  defaultPath,
+  conflict,
+  onChange,
+  onDelete,
+}: {
+  mount: MountDraft;
+  configs: ConfigItem[];
+  defaultPath: string;
+  conflict: boolean;
+  onChange: (next: MountDraft) => void;
+  onDelete: () => void;
+}) {
+  const detailQuery = useQuery({
+    queryKey: ["training-config", mount.setId],
+    queryFn: () => getConfig(mount.setId),
+    enabled: mount.setId > 0,
+  });
+  const pinned = typeof mount.version === "number" ? mount.version : 0;
+  const latest = detailQuery.data?.latestVersion || 0;
+  const needPinnedFiles = mount.setId > 0 && pinned > 0 && pinned !== latest && (mount.mode === "files" || mount.preview);
+  const versionQuery = useQuery({
+    queryKey: ["training-config-version", mount.setId, pinned],
+    queryFn: () => getConfigVersion(mount.setId, pinned),
+    enabled: needPinnedFiles,
+  });
+  const files: ConfigFile[] = needPinnedFiles ? versionQuery.data?.files ?? [] : detailQuery.data?.files ?? [];
+  const selectedFiles = mount.mode === "files" && mount.selected ? files.filter((f) => mount.selected?.includes(f.path)) : files;
+  const versions = [...(detailQuery.data?.versions ?? [])].sort((a, b) => b.version - a.version).slice(0, 20);
+  const previewText = selectedFiles.map((f) => `--- ${f.path} ---\n${f.content || ""}`).join("\n\n");
+
+  return (
+    <div className={cn("cfg-mount-card", conflict && "is-conflict")}>
+      <div className="cfg-mount-card-head">
+        <strong style={{ fontSize: 13 }}>配置集挂载</strong>
+        <Button variant="danger" size="sm" onClick={onDelete}>删除</Button>
+      </div>
+      <div className="cfg-mount-grid">
+        <div className="form-group">
+          <label>配置集</label>
+          <select
+            value={mount.setId}
+            onChange={(e) => onChange({ ...mount, setId: Number(e.target.value), version: LATEST_AT_SUBMIT, selected: null, preview: false })}
+          >
+            <option value={0}>选择配置集</option>
+            {configs.map((c) => (
+              <option key={c.id} value={c.id}>{c.displayName}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>版本</label>
+          <select
+            value={mount.setId ? (mount.version === LATEST_AT_SUBMIT ? LATEST_AT_SUBMIT : String(mount.version)) : ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              onChange({
+                ...mount,
+                version: value === LATEST_AT_SUBMIT ? LATEST_AT_SUBMIT : Number(value),
+                selected: null,
+              });
+            }}
+          >
+            {mount.setId ? (
+              <>
+                <option value={LATEST_AT_SUBMIT}>提交时最新（提交瞬间钉死，不会跟着改）</option>
+                <option disabled>────────</option>
+                {versions.map((v) => (
+                  <option key={v.version} value={v.version}>v{v.version}{v.version === latest ? " · 当前最新" : ""}</option>
+                ))}
+              </>
+            ) : (
+              <option value="">先选择配置集</option>
+            )}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>挂载方式</label>
+          <select
+            value={mount.mode}
+            onChange={(e) => onChange({ ...mount, mode: e.target.value as MountMode, selected: null })}
+          >
+            <option value="dir">整包目录</option>
+            <option value="files">按文件</option>
+          </select>
+        </div>
+        <div className="form-group full">
+          <div className="field-label-row">
+            <label>容器路径</label>
+            <span className="cfg-mount-path-hint">挂载的配置将会覆盖同目录下的同名文件</span>
+          </div>
+          <input
+            className="mono cfg-mount-path-input"
+            value={mount.mountPath}
+            onChange={(e) => {
+              const next = e.target.value;
+              onChange({ ...mount, mountPath: next, isPlatformGenerated: false });
+            }}
+            onBlur={() => {
+              const next = normalizeMountPath(mount.mountPath || defaultPath);
+              onChange({ ...mount, mountPath: next, isPlatformGenerated: next === defaultPath });
+            }}
+            placeholder="容器内只读挂载路径"
+          />
+        </div>
+        {mount.mode === "files" ? (
+          <div className="form-group full">
+            <div className="cfg-mount-files">
+              {files.map((f) => {
+                const on = !mount.selected || mount.selected.includes(f.path);
+                return (
+                  <label key={f.path} className="cfg-mount-file-row">
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={(e) => {
+                        const all = files.map((item) => item.path);
+                        const next = new Set(mount.selected || all);
+                        if (e.target.checked) next.add(f.path);
+                        else next.delete(f.path);
+                        onChange({ ...mount, selected: [...next] });
+                      }}
+                    />
+                    <span className="mono">{f.path}</span>
+                    <span className="mono text-muted">{`${normalizeMountPath(mount.mountPath)}/${f.path}`}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+      </div>
+      {conflict ? <div className="cfg-mount-error">CONFIG_MOUNT_CONFLICT：挂载路径不得相等，也不得互为目录前缀</div> : null}
+      {mount.setId ? (
+        <div className="cfg-mount-preview-wrap">
+          <button
+            type="button"
+            className={cn("cfg-preview-btn", mount.preview && "is-open")}
+            aria-expanded={mount.preview}
+            onClick={() => onChange({ ...mount, preview: !mount.preview })}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {mount.preview ? (
+                <>
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                  <path d="M1 1l22 22" />
+                </>
+              ) : (
+                <>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </>
+              )}
+            </svg>
+            <span>{mount.preview ? "收起预览" : "预览文件"}</span>
+          </button>
+          {mount.preview ? (
+            <CodeViewer className="cfg-mount-preview" language="yaml" value={previewText} wrap minHeight={160} aria-label="配置挂载预览" />
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }

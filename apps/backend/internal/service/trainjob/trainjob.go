@@ -37,9 +37,10 @@ type EnvEntry struct {
 
 // MountInput 是提交时的配置挂载。
 type MountInput struct {
-	SetID     int64  // 配置集
-	Version   int    // 版本
-	MountPath string // 路径
+	SetID     int64    // 配置集
+	Version   int      // 版本
+	MountPath string   // 路径
+	Files     []string // 按文件挂载的相对路径，空则整包
 }
 
 // MountFile 是挂载快照文件。

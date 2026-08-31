@@ -207,7 +207,9 @@ export function focusField(id: string) {
     el.scrollIntoView({ block: "nearest", behavior: "smooth" });
     const target = isTextControl(el)
       ? el
-      : el.querySelector<HTMLElement>("input:not([disabled]):not([type='hidden']), select:not([disabled]), textarea:not([disabled])");
+      : el.querySelector<HTMLElement>(
+          "input:not([disabled]):not([type='hidden']), select:not([disabled]), textarea:not([disabled]), .cm-content[contenteditable='true']",
+        );
     if (!(target instanceof HTMLElement) || isDisabledControl(target)) {
       return;
     }
@@ -217,7 +219,7 @@ export function focusField(id: string) {
 }
 
 function isTextControl(el: HTMLElement) {
-  return el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement;
+  return el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement || el.isContentEditable;
 }
 
 function isDisabledControl(el: HTMLElement) {

@@ -4,11 +4,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { cancelJob, getJob, getJobLogs, listJobAlerts, listJobPods, type EnvEntry } from "@/api/training";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
+import { CodeViewer, codeLangFromPath } from "@/components/CodeEditor";
 import { ListLoading } from "@/components/ListLoading";
 import { Modal } from "@/components/Modal";
 import { DcBadge } from "@/components/UsageCell";
 import { formatDuration, formatTime } from "@/lib/format";
-import { configFileLang, formatBytes, formatMemGi, JobPriorityBadge, JobStatusBadge, isActiveJob } from "@/lib/job";
+import { formatBytes, formatMemGi, JobPriorityBadge, JobStatusBadge, isActiveJob } from "@/lib/job";
 import { toast } from "@/lib/toast";
 
 const tabs = [
@@ -163,9 +164,23 @@ export function JobDetailPage() {
               </section>
               <section className="job-cfg-panel job-cfg-launch">
                 <div className="job-cfg-panel-head">启动命令</div>
-                <pre className="code-block is-hl job-cfg-cmd" data-lang="shell">{highlightShell(job.command)}</pre>
+                <CodeViewer
+                  className="job-cfg-cmd"
+                  language="shell"
+                  value={job.command.trim() ? job.command : "# 无启动命令"}
+                  lineNumbers={false}
+                  wrap
+                  aria-label="启动命令"
+                />
                 <div className="job-cfg-panel-head job-cfg-subhead">环境变量</div>
-                <pre className="code-block is-hl job-cfg-env" data-lang="env">{highlightEnv(job.env)}</pre>
+                <CodeViewer
+                  className="job-cfg-env"
+                  language="env"
+                  value={formatEnv(job.env)}
+                  lineNumbers={false}
+                  wrap
+                  aria-label="环境变量"
+                />
               </section>
               <section className="job-cfg-panel">
                 <div className="job-cfg-panel-head">镜像地址</div>
@@ -219,7 +234,6 @@ export function JobDetailPage() {
                           {(m.files || []).map((f, fi) => {
                             const key = `${idx}:${fi}`;
                             const open = openFile === key;
-                            const lang = configFileLang(f.path).toLowerCase();
                             return (
                               <Fragment key={f.path}>
                                 <tr>
@@ -234,7 +248,13 @@ export function JobDetailPage() {
                                 {open ? (
                                   <tr>
                                     <td colSpan={3}>
-                                      <pre className="code-block is-hl" data-lang={lang === "text" ? "yaml" : lang}>{highlightYaml(f.content)}</pre>
+                                      <CodeViewer
+                                        language={codeLangFromPath(f.path)}
+                                        value={f.content}
+                                        lineNumbers
+                                        wrap={false}
+                                        aria-label={`${f.path} 快照`}
+                                      />
                                     </td>
                                   </tr>
                                 ) : null}
@@ -357,110 +377,9 @@ function podPhaseClass(phase: string) {
   return "badge-starting";
 }
 
-function highlightVars(text: string, fallback: string): ReactNode {
-  const parts = String(text).split(/(\$\{?[A-Za-z_][A-Za-z0-9_]*\}?)/).filter(Boolean);
-  return parts.map((part, i) => (
-    <span key={i} className={part.startsWith("$") ? "hl-var" : fallback}>{part}</span>
-  ));
-}
-
-function highlightShell(command: string): ReactNode {
-  const raw = command.trim();
-  if (!raw) return <span className="hl-comment"># 无启动命令</span>;
-  const tokens: ReactNode[] = [];
-  let i = 0;
-  let cmdPending = true;
-  let key = 0;
-  const push = (node: ReactNode) => {
-    tokens.push(<span key={key}>{node}</span>);
-    key += 1;
-  };
-  while (i < raw.length) {
-    const rest = raw.slice(i);
-    if (raw[i] === "#" && (i === 0 || /\s/.test(raw[i - 1]))) {
-      push(<span className="hl-comment">{raw.slice(i)}</span>);
-      break;
-    }
-    if (raw[i] === "$") {
-      const m = rest.match(/^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/);
-      push(<span className="hl-var">{m![0]}</span>);
-      i += m![0].length;
-      cmdPending = false;
-      continue;
-    }
-    if (rest.startsWith("--") || (raw[i] === "-" && /[A-Za-z]/.test(raw[i + 1] || ""))) {
-      const m = rest.match(/^--?[\w-]+(?:=[^\s]+)?/);
-      const word = m![0];
-      const eq = word.indexOf("=");
-      if (eq >= 0) {
-        push(<span className="hl-flag">{word.slice(0, eq + 1)}</span>);
-        push(highlightVars(word.slice(eq + 1), "hl-str"));
-      } else {
-        push(<span className="hl-flag">{word}</span>);
-      }
-      i += word.length;
-      cmdPending = false;
-      continue;
-    }
-    if (raw[i] === "/" || rest.startsWith("./") || rest.startsWith("../")) {
-      const m = rest.match(/^[^\s]+/);
-      push(<span className="hl-path">{m![0]}</span>);
-      i += m![0].length;
-      cmdPending = false;
-      continue;
-    }
-    if (/\s/.test(raw[i])) {
-      const m = rest.match(/^\s+/);
-      tokens.push(<span key={key}>{m![0]}</span>);
-      key += 1;
-      i += m![0].length;
-      continue;
-    }
-    const m = rest.match(/^[^\s]+/);
-    const word = m![0];
-    if (cmdPending && !word.endsWith("=") && word !== "\\") {
-      push(<span className="hl-cmd">{word}</span>);
-      cmdPending = false;
-    } else {
-      push(highlightVars(word, word.includes("/") ? "hl-path" : "hl-str"));
-    }
-    i += word.length;
-  }
-  return tokens;
-}
-
-function highlightEnv(env: EnvEntry[] | undefined): ReactNode {
-  if (!env?.length) return <span className="hl-comment"># 无额外环境变量</span>;
-  return env.map((item, i) => (
-    <span key={`${item.key}-${i}`}>
-      {i > 0 ? "\n" : null}
-      <span className="hl-key">{item.key}</span>
-      <span className="hl-punct">=</span>
-      <span className="hl-str">{item.value}</span>
-    </span>
-  ));
-}
-
-function highlightYaml(content: string): ReactNode {
-  const text = content || "";
-  if (!text) return null;
-  return text.split("\n").map((line, i) => {
-    const m = line.match(/^(\s*)([^:#\n][^:\n]*)(:)(\s*)(.*)$/);
-    return (
-      <span key={i}>
-        {i > 0 ? "\n" : null}
-        {m ? (
-          <>
-            {m[1]}
-            <span className="hl-key">{m[2]}</span>
-            <span className="hl-punct">{m[3]}</span>
-            {m[4]}
-            {m[5] === "" ? null : /^\d+(\.\d+)?$/.test(m[5]) ? <span className="hl-num">{m[5]}</span> : <span className="hl-str">{m[5]}</span>}
-          </>
-        ) : line}
-      </span>
-    );
-  });
+function formatEnv(env: EnvEntry[] | undefined) {
+  if (!env?.length) return "# 无额外环境变量";
+  return env.map((item) => `${item.key}=${item.value}`).join("\n");
 }
 
 function renderLogLines(content: string): ReactNode {

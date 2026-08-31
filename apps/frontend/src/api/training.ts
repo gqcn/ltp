@@ -73,7 +73,7 @@ export type JobWrite = {
   image: string;
   command: string;
   env: EnvEntry[];
-  mounts: { setId: number; version: number; mountPath: string }[];
+  mounts: { setId: number; version: number; mountPath: string; files?: string[] }[];
   runUserId?: number;
   rerunFromId?: number;
 };

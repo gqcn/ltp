@@ -20,6 +20,7 @@ import (
 	"github.com/gqcn/ltp/internal/dao"
 	"github.com/gqcn/ltp/internal/model/do"
 	"github.com/gqcn/ltp/internal/service/kube"
+	"github.com/gqcn/ltp/internal/service/traincfg"
 	"github.com/gqcn/ltp/pkg/bizerr"
 	"github.com/gqcn/ltp/pkg/logger"
 )
@@ -300,7 +301,7 @@ func (s *serviceImpl) prepareCreate(ctx context.Context, in CreateInput) (*prepa
 
 func (s *serviceImpl) resolveMounts(ctx context.Context, actor Actor, teamID int64, username, jobName string, ins []MountInput) ([]Mount, error) {
 	out := make([]Mount, 0, len(ins))
-	paths := map[string]struct{}{}
+	resolved := make([]string, 0, len(ins))
 	for _, in := range ins {
 		if in.SetID <= 0 || in.Version <= 0 {
 			return nil, errInvalid("请选择配置集，或删除空的挂载卡片")
@@ -309,10 +310,13 @@ func (s *serviceImpl) resolveMounts(ctx context.Context, actor Actor, teamID int
 		if path == "" {
 			path = fmt.Sprintf("/data/hpc/home/%s/experiments/%s/configs", username, jobName)
 		}
-		if _, ok := paths[path]; ok {
-			return nil, errInvalid("配置挂载路径冲突")
+		path = normalizeMountPath(path)
+		for _, other := range resolved {
+			if mountPathsConflict(path, other) {
+				return nil, errInvalid("配置挂载路径冲突：不得相等，也不得互为目录前缀")
+			}
 		}
-		paths[path] = struct{}{}
+		resolved = append(resolved, path)
 		set, files, err := s.cfgSvc.Snapshot(ctx, in.SetID, in.Version)
 		if err != nil {
 			return nil, errInvalid("配置集或版本不存在")
@@ -326,6 +330,10 @@ func (s *serviceImpl) resolveMounts(ctx context.Context, actor Actor, teamID int
 		if set.Visibility == configVisPrivate && set.OwnerUsername != actor.Username && !actor.IsAdmin {
 			return nil, errInvalid("无权使用该私有配置集")
 		}
+		picked, err := filterMountFiles(files, in.Files)
+		if err != nil {
+			return nil, err
+		}
 		mount := Mount{
 			SetID:       set.ID,
 			SetName:     set.Name,
@@ -333,14 +341,63 @@ func (s *serviceImpl) resolveMounts(ctx context.Context, actor Actor, teamID int
 			Version:     in.Version,
 			MountPath:   path,
 			Digest:      "",
-			Files:       make([]MountFile, 0, len(files)),
+			Files:       make([]MountFile, 0, len(picked)),
 		}
-		for _, f := range files {
+		for _, f := range picked {
 			mount.Files = append(mount.Files, MountFile{Path: f.Path, Content: f.Content, Size: len([]byte(f.Content))})
 		}
 		out = append(out, mount)
 	}
 	return out, nil
+}
+
+// filterMountFiles 在按文件挂载时只保留所选相对路径；selected 为空表示整包。
+func filterMountFiles(files []traincfg.File, selected []string) ([]traincfg.File, error) {
+	if selected == nil {
+		return files, nil
+	}
+	want := map[string]struct{}{}
+	for _, path := range selected {
+		p := strings.TrimSpace(path)
+		if p == "" {
+			continue
+		}
+		want[p] = struct{}{}
+	}
+	if len(want) == 0 {
+		return nil, errInvalid("请至少选择一个配置文件")
+	}
+	out := make([]traincfg.File, 0, len(want))
+	for _, f := range files {
+		if _, ok := want[f.Path]; ok {
+			out = append(out, f)
+			delete(want, f.Path)
+		}
+	}
+	if len(want) > 0 {
+		return nil, errInvalid("所选配置文件不在该版本中")
+	}
+	if len(out) == 0 {
+		return nil, errInvalid("请至少选择一个配置文件")
+	}
+	return out, nil
+}
+
+// normalizeMountPath 去掉首尾空白与尾部斜杠，空路径视为根。
+func normalizeMountPath(path string) string {
+	p := strings.TrimRight(strings.TrimSpace(path), "/")
+	if p == "" {
+		return "/"
+	}
+	return p
+}
+
+// mountPathsConflict 判断两条容器路径是否相等或互为目录前缀。
+func mountPathsConflict(a, b string) bool {
+	if a == b {
+		return true
+	}
+	return strings.HasPrefix(a+"/", b+"/") || strings.HasPrefix(b+"/", a+"/")
 }
 
 func (s *serviceImpl) rollbackConfigMaps(ctx context.Context, client kube.ClusterClient, names []string) {

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getConfig, getConfigVersion, updateConfigStatus } from "@/api/training";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
+import { CodeViewer, codeLangFromPath } from "@/components/CodeEditor";
 import { ListLoading } from "@/components/ListLoading";
 import { formatTime } from "@/lib/format";
 import { configFileLang, frameworkLabel } from "@/lib/job";
@@ -125,7 +126,15 @@ export function ConfigDetailPage() {
                       <span className="cfg-file-path-label mono">{active.path}</span>
                       <span className="cfg-file-lang">{configFileLang(active.path)}</span>
                     </div>
-                    <pre className="code-block is-hl" data-lang="yaml">{active.content}</pre>
+                    <div className="cfg-file-code">
+                      <CodeViewer
+                        language={codeLangFromPath(active.path)}
+                        value={active.content}
+                        lineNumbers
+                        wrap={false}
+                        aria-label={`${active.path} 文件内容`}
+                      />
+                    </div>
                   </>
                 ) : <div className="cfg-file-empty is-editor">选择左侧文件查看内容</div>}
               </section>

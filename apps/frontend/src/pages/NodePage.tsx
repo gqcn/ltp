@@ -15,6 +15,7 @@ import {
 } from "@/api/node";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
+import { CodeViewer } from "@/components/CodeEditor";
 import { ListBody, ListLoading } from "@/components/ListLoading";
 import { Modal } from "@/components/Modal";
 import { Pagination } from "@/components/Pagination";
@@ -1035,9 +1036,14 @@ export function NodePage() {
                       复制
                     </Button>
                   </div>
-                  <pre className="code-block is-hl node-yaml-block" data-lang="yaml">
-                    {buildNodeYaml(detail, workingCluster?.displayName)}
-                  </pre>
+                  <CodeViewer
+                    className="node-yaml-block"
+                    language="yaml"
+                    value={buildNodeYaml(detail, workingCluster?.displayName)}
+                    lineNumbers
+                    wrap={false}
+                    aria-label="节点 YAML"
+                  />
                 </div>
               ) : null}
             </div>

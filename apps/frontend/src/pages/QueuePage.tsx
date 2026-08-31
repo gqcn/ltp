@@ -712,7 +712,7 @@ export function QueuePage() {
         <p className="modal-msg">
           {pending?.type === "blocked" ? (
             <>
-              队列 <strong>{pending.item.displayName}</strong> 仍有运行或排队中的任务，暂不可删除。
+              队列 <strong>{pending.item.displayName}</strong> 仍有 {queueBusyPhrase(pending.item)}的任务，暂不可删除。
             </>
           ) : (
             <>
@@ -725,9 +725,9 @@ export function QueuePage() {
         </p>
         <p className={`modal-hint ${queueHintClass(pending?.type)}`}>
           {pending?.type === "blocked"
-            ? queueBusyHint(pending.item)
+            ? "请等待任务结束，或先停止相关任务后再删除。"
             : pending?.type === "delete"
-              ? "删除后新任务不可再选择该队列，团队关联将解除。已结束任务的历史记录会保留。此操作不可撤销。"
+              ? "团队关联将解除。已结束任务的历史记录会保留。此操作不可撤销。"
               : pending?.type === "enable"
                 ? "启用后，该队列将重新出现在新建任务的队列选择列表中，团队成员可再次提交任务。"
                 : "禁用后，新建任务将不可再选择该队列。运行中的任务不受影响；排队中的任务将无法被调度，需要手动终止。可随时重新启用。"}
@@ -819,11 +819,11 @@ function queueHintClass(type?: string) {
   return "is-danger";
 }
 
-function queueBusyHint(item: Queue) {
+function queueBusyPhrase(item: Queue) {
   const bits: string[] = [];
-  if (item.running) bits.push(`运行中 ${item.running} 个`);
-  if (item.pending) bits.push(`排队中 ${item.pending} 个`);
-  return `当前 ${bits.join("，") || "仍有任务"}。请等待任务结束，或先停止相关任务后再删除。`;
+  if (item.running) bits.push(`${item.running} 个运行中`);
+  if (item.pending) bits.push(`${item.pending} 个排队中`);
+  return bits.join("、") || `${(item.running || 0) + (item.pending || 0)} 个`;
 }
 
 function CapacityPanel({

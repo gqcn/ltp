@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
+import { Controller } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { createCluster, deleteCluster, listClusters, probeCluster, updateCluster, type Cluster } from "@/api/cluster";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
+import { CodeEditor } from "@/components/CodeEditor";
 import { ListBody } from "@/components/ListLoading";
 import { FieldError } from "@/components/Field";
 import { Modal } from "@/components/Modal";
@@ -287,13 +289,27 @@ export function ClusterPage() {
             <label htmlFor="cls-form-kubeconfig">
               Kubeconfig {editing ? "" : <span className="req">*</span>}
             </label>
-            <textarea
-              id="cls-form-kubeconfig"
-              rows={8}
-              className="mono cls-form-kubeconfig"
-              placeholder={editing ? "留空沿用已保存凭证，或粘贴新的 kubeconfig YAML 覆盖" : "粘贴完整 kubeconfig YAML…"}
-              {...form.register("kubeconfig")}
-              {...invalidProps("cls-form-kubeconfig", kubeError)}
+            <Controller
+              name="kubeconfig"
+              control={form.control}
+              render={({ field }) => (
+                <CodeEditor
+                  id="cls-form-kubeconfig"
+                  language="yaml"
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  inputRef={field.ref}
+                  className="cls-form-kubeconfig"
+                  minHeight={168}
+                  placeholder={editing ? "留空沿用已保存凭证，或粘贴新的 kubeconfig YAML 覆盖" : "粘贴完整 kubeconfig YAML…"}
+                  wrap
+                  lineNumbers={false}
+                  invalid={Boolean(kubeError)}
+                  aria-label="Kubeconfig"
+                  aria-describedby={kubeError ? "cls-form-kubeconfig-error" : "cls-form-kubeconfig-hint"}
+                />
+              )}
             />
             <FieldError id="cls-form-kubeconfig-error">{kubeError}</FieldError>
             <p className="hint" id="cls-form-kubeconfig-hint">

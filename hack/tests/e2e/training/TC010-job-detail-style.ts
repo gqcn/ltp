@@ -20,10 +20,16 @@ test("TC010 job detail matches prototype layout", async ({ page }) => {
   await expect(page.locator(".breadcrumb .current")).toHaveText(jobName);
   await expect(page.locator(".job-detail-heading")).not.toContainText(String(jobId));
   await expect(page.locator(".job-cfg-fact .dc-badge")).toHaveText("cq-lj");
+  await expect(page.locator(".job-cfg-cmd")).toHaveAttribute("data-code-surface", "viewer");
   await expect(page.locator(".job-cfg-cmd")).toHaveAttribute("data-lang", "shell");
-  await expect(page.locator(".job-cfg-cmd .hl-cmd")).toHaveText("torchrun");
-  await expect(page.locator(".job-cfg-cmd .hl-var").first()).toContainText("$GPU_NUM");
-  await expect(page.locator(".job-cfg-env .hl-key")).toHaveText("EPOCHS");
+  await expect(page.locator(".job-cfg-cmd .cm-editor")).toBeVisible();
+  await expect(page.locator(".job-cfg-cmd")).toContainText("torchrun");
+  await expect(page.locator(".job-cfg-cmd")).toContainText("$GPU_NUM");
+  await expect(page.locator(".job-cfg-cmd [class*='tok-']").first()).toBeVisible();
+  await expect(page.locator(".job-cfg-env")).toHaveAttribute("data-code-surface", "viewer");
+  await expect(page.locator(".job-cfg-env")).toHaveAttribute("data-lang", "env");
+  await expect(page.locator(".job-cfg-env")).toContainText("EPOCHS");
+  await expect(page.locator(".job-cfg-env [class*='tok-']").first()).toBeVisible();
   await expect(page.locator(".job-cfg-mount-title strong")).toHaveText("SLM 7B Phase3 预训练");
   await expect(page.locator(".job-cfg-mount")).not.toContainText("展开");
   await expect(page.locator(".cfg-snapshot-card h4")).toContainText("SLM 7B Phase3 预训练");
@@ -31,8 +37,16 @@ test("TC010 job detail matches prototype layout", async ({ page }) => {
   await expect(page.locator(".cfg-snapshot-files thead")).toHaveText(/路径.*大小.*操作/);
   await expect(page.locator(".cfg-snapshot-files tbody")).toContainText("7b_phase3.yaml");
   await page.locator(".cfg-snapshot-files").getByRole("button", { name: "展开" }).click();
-  await expect(page.locator(".cfg-snapshot-files .code-block")).toContainText("seq_len: 8192");
+  await expect(page.locator(".cfg-snapshot-files [data-code-surface='viewer']")).toContainText("seq_len: 8192");
+  await expect(page.locator(".cfg-snapshot-files [data-code-surface='viewer'] [class*='tok-']").first()).toBeVisible();
   await page.screenshot({ path: path.join(shotDir, "160000-tc010-job-detail-config.png"), fullPage: true });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.locator(".js-theme-toggle").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator(".job-cfg-cmd [class*='tok-']").first()).toBeVisible();
+  await page.screenshot({ path: path.join(shotDir, "173400-tc010-job-detail-light.png"), fullPage: true });
+  await page.locator(".js-theme-toggle").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
   await page.locator("#job-detail-tabs .tab", { hasText: "Pod 列表" }).click();
   await expect(page.getByText("共 1 · Running 0 · 节点 1")).toBeVisible();

@@ -36,9 +36,11 @@
 - [x] 5.4 顶栏切换工作集群后任务列表（及同钩子的我的队列/新建任务）按新集群重新拉取，不再沿用壳层私有 state
 - [x] 5.5 停止时集群中`Volcano Job`不存在视为已停止并写`cancelled`，不再把英文`Volcano job does not exist`抛给用户；补单测与 E2E
 - [x] 5.6 刷新页面时工作集群不得在候选列表未返回前回退为第一项；补 E2E
+- [x] 5.7 新建/重跑配置挂载卡片对齐原型：配置集、版本、挂载方式、容器路径、预览与删除确认；补 E2E
 - `.agents/rules/frontend-ui.md`与`.agents/rules/i18n.md`仍缺失：视觉对齐`prototype.css`，文案用中文，无独立语言包。无数据库与接口路径变更。
 - 5.2：无 API/数据库变更。无行级数据权限。无`i18n`语言包（既有中文 tip 文案不变）。`.agents/rules/frontend-ui.md`缺失，浮层样式沿用`prototype.css`的`.field-help-floating-tip`。
 - 5.3：无 API/数据库变更。无行级数据权限。无`i18n`语言包（中文文案沿用原型）。`.agents/rules/frontend-ui.md`缺失，选择器样式沿用`prototype.css`的`.user-picker-*`。
 - 5.4：无 API/数据库变更。无行级数据权限。无`i18n`语言包。`.agents/rules/frontend-ui.md`缺失，顶栏切换交互不变。
 - 5.5：仅补充停止接口`dc`语义（`Job`不存在视为已停止），无新路径、无数据库变更。无行级数据权限。无`i18n`语言包。架构模块边界无影响。`.agents/rules/frontend-ui.md`缺失，停止确认弹窗与 toast 沿用现有组件。
 - 5.6：无 API/数据库变更。无行级数据权限。无`i18n`语言包。架构模块边界无影响。`.agents/rules/frontend-ui.md`缺失，顶栏选择器交互不变。
+- 5.7：`POST /training/jobs`的`mounts[].files`为可选路径列表，不改路径与方法。无数据库变更。无行级数据权限。无`i18n`语言包。架构模块边界无影响。`.agents/rules/frontend-ui.md`缺失，挂载卡片对齐`prototype.v4`。

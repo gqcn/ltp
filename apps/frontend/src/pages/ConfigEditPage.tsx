@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { createConfig, getConfig, listTrainingTeams, publishConfig, saveConfigDraft, type ConfigFile } from "@/api/training";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
+import { CodeEditor, codeLangFromPath } from "@/components/CodeEditor";
 import { FieldError } from "@/components/Field";
 import { ListLoading } from "@/components/ListLoading";
 import { formatTime } from "@/lib/format";
@@ -232,7 +233,16 @@ export function ConfigEditPage() {
                         }}>删除</Button>
                       </div>
                       <div className="code-editor cfg-file-code">
-                        <textarea className="code-editor-input" value={active.content} onChange={(e) => setFiles((all) => all.map((f) => (f.path === active.path ? { ...f, content: e.target.value } : f)))} />
+                        <CodeEditor
+                          key={active.path}
+                          language={codeLangFromPath(active.path)}
+                          value={active.content}
+                          onChange={(content) => setFiles((all) => all.map((f) => (f.path === active.path ? { ...f, content } : f)))}
+                          lineNumbers
+                          wrap={false}
+                          tabIndent
+                          aria-label={`${active.path} 文件内容`}
+                        />
                       </div>
                     </>
                   ) : <div className="cfg-file-empty is-editor">选择左侧文件，或新建一个文件开始编辑</div>}

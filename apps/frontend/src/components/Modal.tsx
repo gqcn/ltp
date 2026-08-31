@@ -56,7 +56,7 @@ export function Modal({
                 return;
               }
               const field = content.querySelector<HTMLElement>(
-                ".modal-body input:not([readonly]):not([disabled]):not([type='hidden']), .modal-body textarea:not([disabled]), .modal-body select:not([disabled])",
+                ".modal-body input:not([readonly]):not([disabled]):not([type='hidden']), .modal-body textarea:not([disabled]), .modal-body select:not([disabled]), .modal-body .cm-content[contenteditable='true']",
               );
               if (field) {
                 event.preventDefault();

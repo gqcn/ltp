@@ -12,9 +12,10 @@ type EnvEntry struct {
 
 // MountInput 是提交任务时的配置挂载。
 type MountInput struct {
-	SetId     int64  `json:"setId" v:"required|min:1" dc:"配置集 ID" eg:"1"`
-	Version   int    `json:"version" v:"required|min:1" dc:"已发布版本号" eg:"1"`
-	MountPath string `json:"mountPath" v:"required|max-length:256#请填写挂载路径|挂载路径最长 256 个字符" dc:"容器内只读挂载路径" eg:"/data/hpc/home/guoqiang/experiments/slm-7b/configs"`
+	SetId     int64    `json:"setId" v:"required|min:1" dc:"配置集 ID" eg:"1"`
+	Version   int      `json:"version" v:"required|min:1" dc:"已发布版本号。提交时最新须先解析为具体版本号。" eg:"1"`
+	MountPath string   `json:"mountPath" v:"required|max-length:256#请填写挂载路径|挂载路径最长 256 个字符" dc:"容器内只读挂载路径" eg:"/data/hpc/home/guoqiang/experiments/slm-7b/configs"`
+	Files     []string `json:"files" dc:"可选。整包目录时省略；按文件挂载时传入所选相对路径。省略则挂载该版本全部文件。" eg:"7b.yaml"`
 }
 
 // CreateJobReq 提交训练任务并创建 Volcano Job。

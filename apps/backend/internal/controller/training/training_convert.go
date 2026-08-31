@@ -99,7 +99,7 @@ func toMounts(in []trainjob.Mount) []v1.MountSnapshot {
 func fromMounts(in []v1.MountInput) []trainjob.MountInput {
 	out := make([]trainjob.MountInput, 0, len(in))
 	for _, m := range in {
-		out = append(out, trainjob.MountInput{SetID: m.SetId, Version: m.Version, MountPath: m.MountPath})
+		out = append(out, trainjob.MountInput{SetID: m.SetId, Version: m.Version, MountPath: m.MountPath, Files: m.Files})
 	}
 	return out
 }

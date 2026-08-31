@@ -5,6 +5,7 @@ import { z } from "zod";
 import { batchUpdateAlertStatus, getAlert, listAlerts, updateAlertStatus, type AlertItem } from "@/api/alert";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
+import { CodeViewer } from "@/components/CodeEditor";
 import { ListBody, ListLoading } from "@/components/ListLoading";
 import { FieldError } from "@/components/Field";
 import { Modal } from "@/components/Modal";
@@ -378,9 +379,14 @@ export function AlertPage() {
                   <p className="alert-raw-hint">FastX 通过 Webhook 提交到平台的原始 JSON</p>
                 </div>
               </div>
-              <pre className="code-block is-hl alert-raw-json" data-lang="json">
-                {pretty(detailQuery.data.webhookPayload)}
-              </pre>
+              <CodeViewer
+                className="alert-raw-json"
+                language="json"
+                value={pretty(detailQuery.data.webhookPayload)}
+                lineNumbers
+                wrap={false}
+                aria-label="原始告警 JSON"
+              />
             </div>
           </>
         ) : (
