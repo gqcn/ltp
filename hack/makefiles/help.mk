@@ -1,6 +1,5 @@
-.PHONY: help
-
 ## help: 显示可用 Make 目标
+.PHONY: help
 help:
 	@echo "LTP 开发目标"
 	@echo "  make db.up       等待本机 PostgreSQL 并确保存在数据库 ltp"

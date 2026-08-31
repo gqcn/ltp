@@ -1,10 +1,10 @@
-.PHONY: web.deps dev stop status
-
 ## web.deps: 安装前端依赖
+.PHONY: web.deps
 web.deps:
 	@cd $(FRONTEND_DIR) && pnpm install
 
 ## dev: 重启后端与前端，并以 make status 展示状态
+.PHONY: dev
 dev: stop ldap.up web.deps
 	@mkdir -p $(TEMP_DIR)/bin $(PID_DIR)
 	@cd $(BACKEND_DIR) && go build -o $(BACKEND_BIN) .
@@ -20,6 +20,7 @@ dev: stop ldap.up web.deps
 	@$(MAKE) --no-print-directory status
 
 ## stop: 停止后端与前端（含占端口的残留进程；不停 PostgreSQL / LDAP）
+.PHONY: stop
 stop:
 	@ROOT_DIR="$(ROOT_DIR)" \
 		BACKEND_PID="$(BACKEND_PID)" \
@@ -29,6 +30,7 @@ stop:
 		bash "$(ROOT_DIR)/hack/scripts/stop.sh"
 
 ## status: 查看前后端、数据库与依赖服务运行情况
+.PHONY: status
 status:
 	@ROOT_DIR="$(ROOT_DIR)" \
 		BACKEND_PID="$(BACKEND_PID)" \
