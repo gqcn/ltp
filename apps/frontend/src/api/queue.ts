@@ -9,6 +9,9 @@ export type Queue = {
   displayName: string;
   description: string;
   datacenterCode: string;
+  datacenterName?: string;
+  datacenterShortName?: string;
+  datacenterColor?: string;
   gpuType: string;
   gpuQuota: number;
   gpuUsed: number;

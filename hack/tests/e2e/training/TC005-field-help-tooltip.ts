@@ -24,6 +24,7 @@ test("TC005 job create field-help shows floating tip immediately", async ({ page
   await page.screenshot({ path: path.join(shotDir, "190000-tc005-job-create-field-help.png") });
 
   await page.getByRole("button", { name: "资源规格" }).click();
+  await assertImmediateTip(page, page.getByRole("button", { name: "所属团队说明" }), "未绑定队列的团队不出现");
   await assertImmediateTip(page, page.getByRole("button", { name: "所属团队说明" }), "普通用户仅见自己加入的团队");
 
   await page.getByRole("button", { name: "镜像与启动" }).click();

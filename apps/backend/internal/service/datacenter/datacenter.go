@@ -28,6 +28,14 @@ type UsageCounter interface {
 	CountByCodes(ctx context.Context, codes []string) (map[string]UsageStats, error)
 }
 
+// NameRef 是列表展示用的数据中心名称投影，不含用量。
+type NameRef struct {
+	Code      string // 标识
+	Name      string // 显示名称
+	ShortName string // 简称
+	Color     string // 展示色
+}
+
 // Item 是服务层数据中心投影。
 type Item struct {
 	ID          int64      // 主键
@@ -95,6 +103,8 @@ type Service interface {
 	Get(ctx context.Context, id int64) (*Item, error)
 	// GetByCode 按业务标识返回数据中心；不存在时返回 CodeNotFound。
 	GetByCode(ctx context.Context, code string) (*Item, error)
+	// MapByCodes 按标识批量返回名称投影。空切片不访问数据库；缺失键不出现在结果中。
+	MapByCodes(ctx context.Context, codes []string) (map[string]NameRef, error)
 	// Create 插入一条启用的数据中心并返回 ID。
 	Create(ctx context.Context, in CreateInput) (int64, error)
 	// Update 修改展示元数据。标识不可改。

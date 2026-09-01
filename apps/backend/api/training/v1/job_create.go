@@ -37,6 +37,7 @@ type CreateJobReq struct {
 	Mounts       []MountInput `json:"mounts" dc:"可选配置挂载。"`
 	RunUserId    int64        `json:"runUserId" dc:"运行用户 ID。本地管理员必填，须为已启用 LDAP 用户。普通用户忽略，使用自己。" eg:"2"`
 	RerunFromId  int64        `json:"rerunFromId" dc:"可选重跑源任务 ID。" eg:"0"`
+	ProjectId    int64        `json:"projectId" dc:"可选实验项目 ID。省略或 0 时挂到默认项目。" eg:"1"`
 }
 
 // CreateJobRes 返回新建任务 ID。

@@ -5,6 +5,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { loginAsLdap } from "../login";
+import { ensureWorkingCluster } from "../select";
 
 const shotDir = path.resolve(process.cwd(), "../../temp/20260828");
 
@@ -59,12 +60,7 @@ test("TC008 stop missing volcano job marks cancelled", async ({ page }) => {
   }
   expect(gone, "volcano job should be absent before stop").toBeTruthy();
 
-  const clusterSelect = page.getByLabel("工作集群");
-  await clusterSelect.selectOption(String(clusterId));
-  const confirm = page.getByRole("button", { name: "确认切换并刷新" });
-  if (await confirm.isVisible().catch(() => false)) {
-    await confirm.click();
-  }
+  await ensureWorkingCluster(page, clusterId);
 
   await page.locator(".search-box input").fill(name);
   const row = page.locator("tr", { hasText: name });

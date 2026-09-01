@@ -29,7 +29,9 @@ gfcli:
           train_job,
           train_config_set,
           train_config_version,
-          train_config_draft
+          train_config_draft,
+          exp_project,
+          exp_run
         descriptionTag: true
         noModelComment: true
   docker:

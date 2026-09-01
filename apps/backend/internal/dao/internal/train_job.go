@@ -62,8 +62,8 @@ type TrainJobColumns struct {
 	CreatedAt           string // 创建时间
 	UpdatedAt           string // 更新时间
 	DeletedAt           string // 删除时间
-	ListBucket          string //
-	PriorityOrder       string //
+	ListBucket          string // 列表排序桶：0=排队中，1=其它
+	PriorityOrder       string // 优先级排序：P0=0 P1=1 P2=2 P3=3
 }
 
 // trainJobColumns holds the columns for the table train_job.

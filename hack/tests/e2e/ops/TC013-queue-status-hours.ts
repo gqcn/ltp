@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { loginAsAdmin } from "../login";
+import { chooseSelect, ensureWorkingCluster } from "../select";
 
 const shotDir = path.resolve(process.cwd(), "../../temp/20260828");
 
@@ -59,14 +60,7 @@ test("TC013 queue list status filter and gpu hours column", async ({ page }) => 
   try {
     await page.getByRole("link", { name: "队列管理" }).click();
     await expect(page.getByRole("heading", { name: "队列管理" })).toBeVisible();
-    const clusterSelect = page.getByLabel("工作集群");
-    if (await clusterSelect.count()) {
-      if ((await clusterSelect.inputValue()) !== String(clusterId)) {
-        await clusterSelect.selectOption(String(clusterId));
-        const confirm = page.getByRole("button", { name: "确认切换并刷新" });
-        if (await confirm.isVisible().catch(() => false)) await confirm.click();
-      }
-    }
+    await ensureWorkingCluster(page, clusterId!);
     await expect(page.getByText("平台管理员登录成功")).toHaveCount(0, { timeout: 10000 });
     await expect(page.getByRole("columnheader", { name: "本月卡时" })).toBeVisible();
     const statusFilter = page.getByLabel("按状态筛选");
@@ -77,13 +71,13 @@ test("TC013 queue list status filter and gpu hours column", async ({ page }) => 
     await expect(page.locator("tr", { hasText: openName }).locator(".td-queue-hours")).toContainText("卡时");
     await page.screenshot({ path: path.join(shotDir, "140000-tc013-queue-status-all.png") });
 
-    await statusFilter.selectOption("disabled");
+    await chooseSelect(statusFilter, "disabled");
     await expect(page.locator("tr", { hasText: closedName })).toBeVisible();
     await expect(page.locator("tr", { hasText: openName })).toHaveCount(0);
     await expect(page.locator("tr", { hasText: closedName }).locator(".badge")).toHaveText("禁用");
     await page.screenshot({ path: path.join(shotDir, "140010-tc013-queue-status-disabled.png") });
 
-    await statusFilter.selectOption("enabled");
+    await chooseSelect(statusFilter, "enabled");
     await expect(page.locator("tr", { hasText: openName })).toBeVisible();
     await expect(page.locator("tr", { hasText: closedName })).toHaveCount(0);
     await expect(page.locator("tr", { hasText: openName }).locator(".badge")).toHaveText("启用");

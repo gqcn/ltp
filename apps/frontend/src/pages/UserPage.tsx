@@ -11,7 +11,7 @@ import {
   type PlatformUser,
 } from "@/api/user";
 import { listRoles } from "@/api/role";
-import { getLdapConfig } from "@/api/system";
+import { listTeams } from "@/api/team";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
 import { ListBody } from "@/components/ListLoading";
@@ -19,6 +19,7 @@ import { FieldError } from "@/components/Field";
 import { Modal } from "@/components/Modal";
 import { firstZodMessage, focusField, zRequired } from "@/lib/form";
 import { Pagination } from "@/components/Pagination";
+import { Select } from "@/components/Select";
 import { formatTime } from "@/lib/format";
 import { roleMenuLabel } from "@/lib/access";
 import { toast } from "@/lib/toast";
@@ -30,6 +31,7 @@ export function UserPage() {
   const queryClient = useQueryClient();
   const [keyword, setKeyword] = useState("");
   const [roleCode, setRoleCode] = useState("all");
+  const [teamId, setTeamId] = useState("all");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -46,8 +48,13 @@ export function UserPage() {
 
   const rolesQuery = useQuery({ queryKey: ["roles"], queryFn: listRoles });
   const roles = rolesQuery.data?.list ?? [];
+  const teamsQuery = useQuery({
+    queryKey: ["teams", { pageNum: 1, pageSize: 100 }],
+    queryFn: () => listTeams({ pageNum: 1, pageSize: 100 }),
+  });
+  const teams = teamsQuery.data?.list ?? [];
   const listQuery = useQuery({
-    queryKey: ["users", { keyword, roleCode, status, page, pageSize }],
+    queryKey: ["users", { keyword, roleCode, teamId, status, page, pageSize }],
     queryFn: () =>
       listUsers({
         pageNum: page,
@@ -55,9 +62,9 @@ export function UserPage() {
         keyword: keyword.trim() || undefined,
         roleCode: roleCode === "all" ? undefined : roleCode,
         enabled: status === "all" ? undefined : status === "enabled",
+        teamId: teamId === "all" ? undefined : Number(teamId),
       }),
   });
-  const ldapCfgQuery = useQuery({ queryKey: ["ldap-config"], queryFn: getLdapConfig, enabled: ldapOpen });
   const directoryQuery = useQuery({
     queryKey: ["ldap-directory", ldapKeyword],
     queryFn: () => searchLdapDirectory(ldapKeyword.trim()),
@@ -164,7 +171,6 @@ export function UserPage() {
     setRoleOpen(true);
   }
 
-  const cfg = ldapCfgQuery.data?.config;
   const directory = directoryQuery.data?.list ?? [];
   const ldapRoleHint = roles.find((item) => item.code === ldapRole)?.menus.map(roleMenuLabel).join("、");
 
@@ -201,33 +207,40 @@ export function UserPage() {
             }}
           />
         </div>
-        <select
-          className="filter-select"
+        <Select
+          variant="filter"
+          aria-label="按团队筛选"
+          value={teamId}
+          options={[{ value: "all", label: "全部团队" }, ...teams.map((item) => ({ value: String(item.id), label: item.name }))]}
+          onChange={(next) => {
+            setPage(1);
+            setTeamId(next);
+          }}
+        />
+        <Select
+          variant="filter"
+          aria-label="按角色筛选"
           value={roleCode}
-          onChange={(event) => {
+          options={[{ value: "all", label: "全部角色" }, ...roles.map((item) => ({ value: item.code, label: item.name }))]}
+          onChange={(next) => {
             setPage(1);
-            setRoleCode(event.target.value);
+            setRoleCode(next);
           }}
-        >
-          <option value="all">全部角色</option>
-          {roles.map((item) => (
-            <option key={item.code} value={item.code}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="filter-select"
+        />
+        <Select
+          variant="filter"
+          aria-label="按状态筛选"
           value={status}
-          onChange={(event) => {
+          options={[
+            { value: "all", label: "全部状态" },
+            { value: "enabled", label: "启用" },
+            { value: "disabled", label: "停用" },
+          ]}
+          onChange={(next) => {
             setPage(1);
-            setStatus(event.target.value as StatusFilter);
+            setStatus(next as StatusFilter);
           }}
-        >
-          <option value="all">全部状态</option>
-          <option value="enabled">启用</option>
-          <option value="disabled">停用</option>
-        </select>
+        />
       </div>
       <div className="card">
         {selected.length ? (
@@ -401,29 +414,16 @@ export function UserPage() {
         <p className="modal-lead">
           按当前 LDAP 配置检索公司目录，勾选后加入<strong>平台可用用户</strong>列表，并指定统一角色权限。已在列表中的用户不会重复添加。
         </p>
-        <div className="ldap-add-cfg mb-16">
-          <div className="ldap-add-cfg-inner">
-            <span className="tag">{cfg?.useTls ? "LDAPS" : "LDAP"}</span>
-            <span className="mono" style={{ fontSize: 12 }}>
-              {cfg?.host}:{cfg?.port}
-            </span>
-            <span className="text-muted" style={{ fontSize: 12 }}>
-              Base {cfg?.baseDn || "—"}
-            </span>
-            {cfg?.lastTestResult === "success" ? <span className="badge badge-healthy">最近测试成功</span> : <span className="badge badge-warning">建议先测试连接</span>}
-          </div>
-        </div>
         <div className="form-group" style={{ marginBottom: 12 }}>
           <label htmlFor="ldap-user-role">
             角色权限 <span className="req">*</span>
           </label>
-          <select id="ldap-user-role" className="filter-select" style={{ width: "100%", maxWidth: "none" }} value={ldapRole} onChange={(event) => setLdapRole(event.target.value)}>
-            {roles.map((item) => (
-              <option key={item.code} value={item.code}>
-                {item.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            id="ldap-user-role"
+            value={ldapRole}
+            options={roles.map((item) => ({ value: item.code, label: item.name }))}
+            onChange={setLdapRole}
+          />
           <p className="text-muted" style={{ fontSize: 11.5, margin: "6px 0 0", lineHeight: 1.5 }}>
             {ldapRoleHint ? `可见菜单：${ldapRoleHint}` : ""}
           </p>

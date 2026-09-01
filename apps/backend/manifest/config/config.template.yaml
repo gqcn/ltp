@@ -59,3 +59,10 @@ ops:
   fastx:
     # FastX Webhook 共享令牌。留空则本地不校验；生产必须填写。
     webhookToken: ""
+
+# 实验分析
+experiment:
+  # 机房内读盘与 TensorBoard 代理镜像。
+  agentImage: "ltp/experiment-agent:dev"
+  # 看板空闲回收时长。
+  idleAfter: "20m"

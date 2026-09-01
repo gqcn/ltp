@@ -14,6 +14,9 @@ export type ClusterNode = {
   schedulable: boolean;
   status: string;
   datacenter: string;
+  datacenterName?: string;
+  datacenterShortName?: string;
+  datacenterColor?: string;
   gpuType: string;
   hasIB: boolean;
   ibDomain: string;
@@ -89,6 +92,37 @@ export function updateNodeLabels(input: { clusterId: number; names: string[]; la
 
 export function updateNodeTaints(input: { clusterId: number; names: string[]; taints: NodeTaint[]; remark?: string }) {
   return api<Record<string, never>>("/nodes/taints", { method: "PUT", body: JSON.stringify(input) });
+}
+
+export type NodeQuotaImpactGPU = {
+  type: string;
+  current: number;
+  after: number;
+  allocated: number;
+};
+
+export type NodeQuotaImpactDC = {
+  datacenterCode: string;
+  cpuCurrent: number;
+  cpuAfter: number;
+  cpuAllocated: number;
+  memCurrentGi: number;
+  memAfterGi: number;
+  memAllocated: number;
+  gpuTypes: NodeQuotaImpactGPU[];
+};
+
+export type NodeQuotaImpact = {
+  changed: boolean;
+  overAllocated: boolean;
+  datacenters: NodeQuotaImpactDC[];
+};
+
+export function previewNodeQuotaImpact(query: { clusterId: number; names: string[] }) {
+  const params = new URLSearchParams();
+  params.set("clusterId", String(query.clusterId));
+  query.names.forEach((name) => params.append("names[]", name));
+  return api<NodeQuotaImpact>(`/nodes/quota-impact?${params.toString()}`);
 }
 
 export function isolateNodes(input: { clusterId: number; names: string[]; remark?: string }) {

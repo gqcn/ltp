@@ -103,6 +103,14 @@ export function JobDetailPage() {
               <JobStatusBadge status={job.status} />
             </h2>
             {job.failReason ? <div className="detail-fail-banner"><strong>失败原因</strong><span>{job.failReason}</span></div> : null}
+            {job.experimentId ? (
+              <div className="job-exp-banner">
+                <div className="job-exp-banner-main">
+                  <div className="job-exp-banner-label">关联实验</div>
+                  <button type="button" className="link-cell" onClick={() => navigate(`/training/experiments/${job.experimentId}`)}>{job.experimentName || `Run #${job.experimentId}`}</button>
+                </div>
+              </div>
+            ) : null}
           </div>
           <div className="page-actions">
             {isActiveJob(job.status) ? (
@@ -145,7 +153,7 @@ export function JobDetailPage() {
                   <div className="job-cfg-fact"><span className="k">团队</span><span className="v">{job.teamName}</span></div>
                   <div className="job-cfg-fact"><span className="k">队列</span><span className="v">{job.queueDisplayName}</span></div>
                   <div className="job-cfg-fact"><span className="k">优先级</span><span className="v"><JobPriorityBadge priority={job.priority} /></span></div>
-                  <div className="job-cfg-fact"><span className="k">数据中心</span><span className="v"><DcBadge code={job.datacenterCode} /></span></div>
+                  <div className="job-cfg-fact"><span className="k">数据中心</span><span className="v"><DcBadge code={job.datacenterCode} name={job.datacenterName} shortName={job.datacenterShortName} color={job.datacenterColor} /></span></div>
                   <div className="job-cfg-fact"><span className="k">使用 IB</span><span className="v"><span className={`summary-yesno ${job.requireIb ? "is-yes" : "is-no"}`}>{job.requireIb ? "是" : "否"}</span></span></div>
                   <div className="job-cfg-fact is-span">
                     <span className="k">资源</span>

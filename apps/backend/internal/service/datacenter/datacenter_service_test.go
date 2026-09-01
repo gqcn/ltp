@@ -65,6 +65,17 @@ func TestDatacenterCRUD(t *testing.T) {
 		t.Fatal("createdAt should be unix milliseconds")
 	}
 
+	byCode, err := svc.MapByCodes(ctx, []string{code, "", code, "missing-dc"})
+	if err != nil {
+		t.Fatalf("map by codes: %v", err)
+	}
+	if len(byCode) != 1 {
+		t.Fatalf("expected 1 mapped datacenter, got %d", len(byCode))
+	}
+	if byCode[code].Name != "测试数据中心" || byCode[code].ShortName != "测试" {
+		t.Fatalf("map by codes: %+v", byCode[code])
+	}
+
 	if err := svc.Update(ctx, UpdateInput{ID: id, Name: "测试数据中心-改", ShortName: "测改", Region: "新疆", Color: "#a78bfa"}); err != nil {
 		t.Fatalf("update: %v", err)
 	}

@@ -49,17 +49,42 @@ type NameRef struct {
 
 // QueueRef 是已关联队列投影。
 type QueueRef struct {
-	ID             int64  // 队列 ID
-	Name           string // 标识
-	DisplayName    string // 显示名
-	DatacenterCode string // 数据中心
-	Enabled        bool   // 是否启用
-	State          string // Volcano 状态
+	ID                  int64  // 队列 ID
+	Name                string // 标识
+	DisplayName         string // 显示名
+	DatacenterCode      string // 数据中心标识
+	DatacenterName      string // 数据中心名称
+	DatacenterShortName string // 数据中心简称
+	DatacenterColor     string // 数据中心颜色
+	GPUType             string // 卡型号
+	Enabled             bool   // 是否启用
+	State               string // Volcano 状态
 }
 
-// QueueSource 按团队批量返回关联队列。
+// QueueOption 是管理队列弹窗候选项。
+type QueueOption struct {
+	ID                  int64  // 队列 ID
+	Name                string // 标识
+	DisplayName         string // 显示名
+	DatacenterCode      string // 数据中心标识
+	DatacenterName      string // 数据中心名称
+	DatacenterShortName string // 数据中心简称
+	DatacenterColor     string // 数据中心颜色
+	GPUType             string // 卡型号
+	GPUQuota            int    // GPU 额度
+	GPUUsed             int    // GPU 已用
+	Enabled             bool   // 是否启用
+	State               string // Volcano 状态
+}
+
+// QueueSource 按团队批量返回关联队列，并承接团队侧绑定写入。
 type QueueSource interface {
+	// ListByTeamIDs 按团队批量返回关联队列。无关联时对应值为空切片。
 	ListByTeamIDs(ctx context.Context, teamIDs []int64) (map[int64][]QueueRef, error)
+	// ListBindOptions 分页返回可供绑定的队列。keyword 空表示不过滤。
+	ListBindOptions(ctx context.Context, keyword string, pageNum, pageSize int) ([]QueueOption, int, error)
+	// ReplaceQueuesForTeam 按队列 ID 全量替换该团队绑定。空切片解除全部绑定。
+	ReplaceQueuesForTeam(ctx context.Context, teamID int64, queueIDs []int64) error
 }
 
 // Detail 是团队详情。
@@ -120,6 +145,10 @@ type Service interface {
 	ListNameRefsByUserID(ctx context.Context, userID int64) ([]NameRef, error)
 	// BindQueues 注入队列投影，供详情展示关联队列。
 	BindQueues(queues QueueSource)
+	// ListQueueOptions 返回可供绑定的队列候选项。队列模块未装配时返回空列表。
+	ListQueueOptions(ctx context.Context, keyword string, pageNum, pageSize int) ([]QueueOption, int, error)
+	// SetQueues 全量替换团队关联队列。queueIDs 为空表示解绑全部。队列模块未装配时返回校验错误。
+	SetQueues(ctx context.Context, teamID int64, queueIDs []int64) error
 }
 
 var _ Service = (*serviceImpl)(nil)

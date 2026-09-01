@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { loginAsLdap } from "../login";
+import { chooseSelect, listSelectOptions } from "../select";
 
 const shotDir = path.resolve(process.cwd(), "../../temp/20260828");
 
@@ -15,8 +16,9 @@ test("TC012 create job config mount card matches prototype fields", async ({ pag
 
   await page.getByRole("button", { name: /资源规格/ }).click();
   const team = page.locator("#create-team");
-  if ((await team.locator("option").count()) > 1) {
-    await team.selectOption({ index: 1 });
+  const teamOptions = await listSelectOptions(team);
+  if (teamOptions.filter((item) => item.value && item.value !== "0").length) {
+    await chooseSelect(team, { index: 1 });
   }
 
   await page.getByRole("button", { name: /配置挂载/ }).click();
@@ -36,15 +38,20 @@ test("TC012 create job config mount card matches prototype fields", async ({ pag
   await expect(card.locator("label", { hasText: "挂载方式" })).toBeVisible();
   await expect(card.locator("label", { hasText: "容器路径" })).toBeVisible();
   await expect(card.locator(".cfg-mount-path-hint")).toHaveText("挂载的配置将会覆盖同目录下的同名文件");
-  await expect(card.getByRole("combobox").nth(2)).toHaveValue("dir");
+  await expect(card.getByLabel("挂载方式")).toBeVisible();
   await expect(addBtn.locator(".cfg-add-mount-title")).toHaveText("继续添加配置集");
   await expect(addBtn).toHaveClass(/is-compact/);
-  const setSelect = card.locator("select").first();
-  if ((await setSelect.locator("option").count()) > 1) {
-    await setSelect.selectOption({ index: 1 });
-    await expect(card.locator("select").nth(1)).toContainText("提交时最新");
+  const setSelect = card.getByLabel("配置集");
+  const setOptions = await listSelectOptions(setSelect);
+  if (setOptions.filter((item) => item.value && item.value !== "0").length) {
+    await chooseSelect(setSelect, { index: 1 });
+    await expect(card.getByLabel("版本")).toBeVisible();
+    await expect(page.getByRole("option", { name: /提交时最新/ })).toHaveCount(0);
+    await card.getByLabel("版本").click();
+    await expect(page.getByRole("option", { name: /提交时最新/ })).toBeVisible();
+    await page.keyboard.press("Escape");
     await expect(card.getByRole("button", { name: "预览文件" })).toBeVisible();
-    await card.locator("select").nth(2).selectOption("files");
+    await chooseSelect(card.getByLabel("挂载方式"), "files");
     await expect(card.locator(".cfg-mount-file-row").first()).toBeVisible({ timeout: 8000 });
     await card.getByRole("button", { name: "预览文件" }).click();
     await expect(card.locator("[data-code-surface='viewer']")).toBeVisible();

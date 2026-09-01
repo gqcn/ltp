@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { createConfig, getConfig, listTrainingTeams, publishConfig, saveConfigDraft, type ConfigFile } from "@/api/training";
@@ -6,10 +6,15 @@ import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
 import { CodeEditor, codeLangFromPath } from "@/components/CodeEditor";
 import { FieldError } from "@/components/Field";
+import { Select } from "@/components/Select";
 import { ListLoading } from "@/components/ListLoading";
 import { formatTime } from "@/lib/format";
 import { configFileLang } from "@/lib/job";
+import { cn } from "@/lib/cn";
 import { toast } from "@/lib/toast";
+
+const cfgTabs = ["basic", "files", "publish"] as const;
+type CfgTab = (typeof cfgTabs)[number];
 
 const templates: Record<string, ConfigFile[]> = {
   megatron: [{ path: "pretrain.yaml", content: "seq_len: 8192\nmicro_batch_size: 2\n" }],
@@ -23,7 +28,10 @@ export function ConfigEditPage() {
   const isNew = !id || id === "new";
   const setId = Number(id);
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"basic" | "files" | "publish">("basic");
+  const [tab, setTab] = useState<CfgTab>("basic");
+  const [tabsStuck, setTabsStuck] = useState(false);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const tabScrollLock = useRef(false);
   const [displayName, setDisplayName] = useState("");
   const [teamId, setTeamId] = useState(0);
   const [framework, setFramework] = useState("megatron");
@@ -82,6 +90,48 @@ export function ConfigEditPage() {
     onError: (error: unknown) => toast.error(error instanceof ApiError ? error.message : "发布失败"),
   });
 
+  useEffect(() => {
+    function syncTabsFromScroll() {
+      const tabsEl = tabsRef.current;
+      if (!tabsEl) {
+        return;
+      }
+      const topbarBottom = document.querySelector(".topbar")?.getBoundingClientRect().bottom ?? 56;
+      setTabsStuck(tabsEl.getBoundingClientRect().top <= topbarBottom + 0.5);
+      if (tabScrollLock.current) {
+        return;
+      }
+      const offset = tabsEl.getBoundingClientRect().bottom + 12;
+      let current: CfgTab = cfgTabs[0];
+      for (const key of cfgTabs) {
+        const section = document.getElementById(`cfg-edit-section-${key}`);
+        if (!section) {
+          continue;
+        }
+        if (section.getBoundingClientRect().top <= offset) {
+          current = key;
+        }
+      }
+      setTab((prev) => (prev === current ? prev : current));
+    }
+    syncTabsFromScroll();
+    window.addEventListener("scroll", syncTabsFromScroll, true);
+    window.addEventListener("resize", syncTabsFromScroll);
+    return () => {
+      window.removeEventListener("scroll", syncTabsFromScroll, true);
+      window.removeEventListener("resize", syncTabsFromScroll);
+    };
+  }, []);
+
+  function goTab(next: CfgTab) {
+    setTab(next);
+    tabScrollLock.current = true;
+    document.getElementById(`cfg-edit-section-${next}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => {
+      tabScrollLock.current = false;
+    }, 450);
+  }
+
   function ensureName() {
     if (!displayName.trim()) {
       setNameError("请填写显示名称");
@@ -94,11 +144,6 @@ export function ConfigEditPage() {
 
   if (!isNew && detailQuery.isLoading) {
     return <div className="card" style={{ margin: 24 }}><ListLoading label="正在加载配置集…" /></div>;
-  }
-
-  function goTab(next: "basic" | "files" | "publish") {
-    setTab(next);
-    document.getElementById(`cfg-edit-section-${next}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
@@ -122,7 +167,7 @@ export function ConfigEditPage() {
       ) : null}
       <div className="wizard-layout cfg-editor-layout">
         <div className="card job-create-form-card cfg-edit-form-card">
-          <div className="tabs create-form-tabs" role="navigation" aria-label="配置表单章节">
+          <div id="cfg-edit-tabs" ref={tabsRef} className={cn("tabs create-form-tabs", tabsStuck && "is-stuck")} role="navigation" aria-label="配置表单章节">
             <button type="button" className={`tab ${tab === "basic" ? "active" : ""} ${displayName ? "is-done" : ""}`} onClick={() => goTab("basic")}>
               <span className="num">1</span>
               <span className="create-tab-copy"><span className="create-tab-title">基本信息</span><span className="create-tab-meta">{displayName || "名称 / 团队 / 可见性"}</span></span>
@@ -148,26 +193,47 @@ export function ConfigEditPage() {
                 </div>
                 <div className="form-group">
                   <label>所属团队 <span className="req">*</span></label>
-                  <select id="cfg-edit-team" value={teamId} onChange={(e) => setTeamId(Number(e.target.value))} disabled={!isNew}>
-                    <option value={0}>请选择</option>
-                    {(teamsQuery.data?.list ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
+                  <Select
+                    id="cfg-edit-team"
+                    value={String(teamId)}
+                    disabled={!isNew}
+                    options={[
+                      { value: "0", label: "请选择" },
+                      ...(teamsQuery.data?.list ?? []).map((t) => ({ value: String(t.id), label: t.name })),
+                    ]}
+                    onChange={(next) => setTeamId(Number(next))}
+                  />
                 </div>
                 <div className="form-group">
                   <label>可见性</label>
-                  <select value={visibility} onChange={(e) => setVisibility(e.target.value)}>
-                    <option value="team">团队共享</option>
-                    <option value="private">仅自己可见</option>
-                  </select>
+                  <Select
+                    value={visibility}
+                    options={[
+                      { value: "team", label: "团队共享" },
+                      { value: "private", label: "仅自己可见" },
+                    ]}
+                    onChange={setVisibility}
+                  />
                 </div>
                 <div className="form-group">
                   <label>框架模板</label>
-                  <select value={framework} onChange={(e) => { setFramework(e.target.value); if (isNew) { const next = templates[e.target.value] || templates.custom; setFiles(next); setActivePath(next[0]?.path || ""); } }}>
-                    <option value="megatron">Megatron</option>
-                    <option value="nemo">NeMo</option>
-                    <option value="accelerate">Accelerate</option>
-                    <option value="custom">自定义</option>
-                  </select>
+                  <Select
+                    value={framework}
+                    options={[
+                      { value: "megatron", label: "Megatron" },
+                      { value: "nemo", label: "NeMo" },
+                      { value: "accelerate", label: "Accelerate" },
+                      { value: "custom", label: "自定义" },
+                    ]}
+                    onChange={(next) => {
+                      setFramework(next);
+                      if (isNew) {
+                        const filesNext = templates[next] || templates.custom;
+                        setFiles(filesNext);
+                        setActivePath(filesNext[0]?.path || "");
+                      }
+                    }}
+                  />
                 </div>
                 <div className="form-group full">
                   <label>描述</label>

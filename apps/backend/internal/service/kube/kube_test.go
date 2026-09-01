@@ -37,6 +37,32 @@ func TestJobOwnerRefUsesVolcanoJobGVK(t *testing.T) {
 	}
 }
 
+func TestFakeAgentWorkloadLifecycle(t *testing.T) {
+	ctx := context.Background()
+	fake := &Fake{}
+	spec := AgentSpec{Namespace: "maip", Name: "exp-1-metrics", Role: "metrics", Image: "ltp/experiment-agent:dev"}
+	if err := fake.ApplyAgentJob(ctx, spec); err != nil {
+		t.Fatal(err)
+	}
+	if err := fake.ApplyAgentPod(ctx, AgentSpec{Namespace: "maip", Name: "exp-1-tb", Role: "serve", Image: spec.Image}); err != nil {
+		t.Fatal(err)
+	}
+	jobs, err := fake.ListAgentJobs(ctx, "maip", "maip.io/role=metrics")
+	if err != nil || len(jobs) != 1 || jobs[0].Name != "exp-1-metrics" {
+		t.Fatalf("jobs=%+v err=%v", jobs, err)
+	}
+	if _, err := fake.ProxyPod(ctx, PodProxyInput{Namespace: "maip", Pod: "exp-1-tb"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := fake.DeleteAgentJob(ctx, "maip", "exp-1-metrics"); err != nil {
+		t.Fatal(err)
+	}
+	jobs, err = fake.ListAgentJobs(ctx, "maip", "")
+	if err != nil || len(jobs) != 0 {
+		t.Fatalf("after delete jobs=%+v err=%v", jobs, err)
+	}
+}
+
 func TestFakeAbortJobAndNamespace(t *testing.T) {
 	ctx := context.Background()
 	fake := &Fake{Jobs: map[string]*VolcanoJob{"maip/demo": {Namespace: "maip", Name: "demo", Phase: "Running"}}}

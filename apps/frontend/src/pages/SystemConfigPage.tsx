@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getLdapConfig, saveLdapConfig, testLdapConfig, type LdapForm } from "@/api/system";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
-import { FieldError } from "@/components/Field";
+import { FieldError, FieldHelp } from "@/components/Field";
 import { errText, groupClass, invalidProps, LINE_MAX, useZodForm, zLine, zLineOpt } from "@/lib/form";
 import { toast } from "@/lib/toast";
 
@@ -177,8 +177,11 @@ export function SystemConfigPage() {
                     <FieldError id="ldap-bind-dn-error">{bindDnError}</FieldError>
                   </div>
                   <div className={groupClass(bindPwdError, "full")}>
-                    <label htmlFor="ldap-bind-pwd">Bind 密码</label>
-                    <input id="ldap-bind-pwd" type="password" placeholder="留空则不修改" maxLength={LINE_MAX} {...form.register("bindPassword")} {...invalidProps("ldap-bind-pwd", bindPwdError)} />
+                    <div className="field-label-row">
+                      <label htmlFor="ldap-bind-pwd">Bind 密码</label>
+                      <FieldHelp tip="留空则不修改已保存密码。密码加密存储。" label="Bind 密码说明" />
+                    </div>
+                    <input id="ldap-bind-pwd" type="password" maxLength={LINE_MAX} {...form.register("bindPassword")} {...invalidProps("ldap-bind-pwd", bindPwdError)} />
                     <FieldError id="ldap-bind-pwd-error">{bindPwdError}</FieldError>
                   </div>
                   <div className="form-group">
@@ -195,12 +198,18 @@ export function SystemConfigPage() {
               <div className="card-body">
                 <div className="form-grid">
                   <div className={groupClass(userFilterError, "full")}>
-                    <label htmlFor="ldap-user-filter">用户认证 Filter</label>
+                    <div className="field-label-row">
+                      <label htmlFor="ldap-user-filter">用户认证 Filter</label>
+                      <FieldHelp tip="{username} 将替换为登录账号" label="用户认证 Filter 说明" />
+                    </div>
                     <input id="ldap-user-filter" className="mono" maxLength={LINE_MAX} {...form.register("userFilter")} {...invalidProps("ldap-user-filter", userFilterError)} />
                     <FieldError id="ldap-user-filter-error">{userFilterError}</FieldError>
                   </div>
                   <div className={groupClass(searchFilterError, "full")}>
-                    <label htmlFor="ldap-search-filter">目录搜索 Filter</label>
+                    <div className="field-label-row">
+                      <label htmlFor="ldap-search-filter">目录搜索 Filter</label>
+                      <FieldHelp tip="{q} 将替换为搜索关键词" label="目录搜索 Filter 说明" />
+                    </div>
                     <input id="ldap-search-filter" className="mono" maxLength={LINE_MAX} {...form.register("searchFilter")} {...invalidProps("ldap-search-filter", searchFilterError)} />
                     <FieldError id="ldap-search-filter-error">{searchFilterError}</FieldError>
                   </div>

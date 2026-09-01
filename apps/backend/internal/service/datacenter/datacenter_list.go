@@ -82,6 +82,44 @@ func (s *serviceImpl) Get(ctx context.Context, id int64) (*Item, error) {
 	return s.projectOne(ctx, row)
 }
 
+// MapByCodes 按标识批量返回名称投影。
+func (s *serviceImpl) MapByCodes(ctx context.Context, codes []string) (map[string]NameRef, error) {
+	out := map[string]NameRef{}
+	uniq := uniqueCodes(codes)
+	if len(uniq) == 0 {
+		return out, nil
+	}
+	var rows []*entity.OpsDatacenter
+	err := dao.OpsDatacenter.Ctx(ctx).WhereIn(dao.OpsDatacenter.Columns().Code, uniq).Scan(&rows)
+	if err != nil {
+		return nil, gerror.Wrap(err, "map datacenters by code")
+	}
+	for _, row := range rows {
+		if row == nil {
+			continue
+		}
+		out[row.Code] = NameRef{Code: row.Code, Name: row.Name, ShortName: row.ShortName, Color: row.Color}
+	}
+	return out, nil
+}
+
+func uniqueCodes(codes []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(codes))
+	for _, code := range codes {
+		code = strings.TrimSpace(code)
+		if code == "" {
+			continue
+		}
+		if _, ok := seen[code]; ok {
+			continue
+		}
+		seen[code] = struct{}{}
+		out = append(out, code)
+	}
+	return out
+}
+
 // GetByCode 按业务标识返回数据中心。
 func (s *serviceImpl) GetByCode(ctx context.Context, code string) (*Item, error) {
 	code = strings.TrimSpace(code)

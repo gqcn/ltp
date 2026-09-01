@@ -15,17 +15,21 @@ type MemberItem struct {
 
 // QueueRef 是团队已关联队列的只读投影。
 type QueueRef struct {
-	Id             int64  `json:"id" dc:"队列 ID" eg:"1"`
-	Name           string `json:"name" dc:"队列标识" eg:"lab-default"`
-	DisplayName    string `json:"displayName" dc:"显示名称" eg:"实验默认队列"`
-	DatacenterCode string `json:"datacenterCode" dc:"数据中心标识" eg:"cq-lj"`
-	Enabled        bool   `json:"enabled" dc:"是否启用" eg:"true"`
-	State          string `json:"state" dc:"Volcano 状态" eg:"Open"`
+	Id                  int64  `json:"id" dc:"队列 ID" eg:"1"`
+	Name                string `json:"name" dc:"队列标识" eg:"lab-default"`
+	DisplayName         string `json:"displayName" dc:"显示名称" eg:"实验默认队列"`
+	DatacenterCode      string `json:"datacenterCode" dc:"数据中心标识" eg:"cq-lj"`
+	DatacenterName      string `json:"datacenterName" dc:"数据中心显示名称。未登记时为空。" eg:"重庆两江"`
+	DatacenterShortName string `json:"datacenterShortName" dc:"数据中心简称。未登记时为空。" eg:"两江"`
+	DatacenterColor     string `json:"datacenterColor" dc:"数据中心展示色。未登记时为空。" eg:"#3b82f6"`
+	GpuType             string `json:"gpuType" dc:"卡型号" eg:"NVIDIA-H200"`
+	Enabled             bool   `json:"enabled" dc:"是否启用" eg:"true"`
+	State               string `json:"state" dc:"Volcano 状态" eg:"Open"`
 }
 
 // GetReq 读取一条团队详情，含成员列表。
 type GetReq struct {
-	g.Meta `path:"/teams/{id}" method:"get" tags:"Team" summary:"获取团队详情" dc:"返回团队元数据、负责人、成员列表与已关联队列。成员与队列均一次批量加载。队列绑定在队列管理中维护。" permission:"platform:team:query"`
+	g.Meta `path:"/teams/{id}" method:"get" tags:"Team" summary:"获取团队详情" dc:"返回团队元数据、负责人、成员列表与已关联队列。成员与队列均一次批量加载。队列绑定可在队列管理或团队详情「管理队列」中维护。" permission:"platform:team:query"`
 	Id     int64 `json:"id" v:"required|min:1" dc:"团队 ID" eg:"1"`
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/gqcn/ltp/internal/service/cluster"
 	"github.com/gqcn/ltp/internal/service/datacenter"
 	"github.com/gqcn/ltp/internal/service/kube"
+	"github.com/gqcn/ltp/internal/service/queue"
 )
 
 const (
@@ -64,29 +65,32 @@ type Taint = kube.Taint
 
 // Item 是节点列表投影。
 type Item struct {
-	Name          string            // 节点名
-	IP            string            // IP
-	Roles         []string          // 角色
-	Ready         bool              // Ready
-	Schedulable   bool              // 可调度
-	Status        string            // 展示状态
-	Datacenter    string            // 数据中心标识
-	GPUType       string            // 卡型号
-	HasIB         bool              // IB
-	IBDomain      string            // IB 域
-	Isolated      bool              // 故障隔离
-	IsolateRemark string            // 最近一次成功隔离备注
-	PodCount      int               // Pod 数
-	PodCapacity   int               // Pod 容量
-	GPUUsed       int64             // GPU 已用
-	GPUTotal      int64             // GPU 总量
-	CPUUsedMilli  int64             // CPU 已用毫核
-	CPUTotalMilli int64             // CPU 总量毫核
-	MemUsedBytes  int64             // 内存已用
-	MemTotalBytes int64             // 内存总量
-	Conditions    []string          // 异常条件
-	Labels        map[string]string // 标签
-	Taints        []Taint           // 污点
+	Name                string            // 节点名
+	IP                  string            // IP
+	Roles               []string          // 角色
+	Ready               bool              // Ready
+	Schedulable         bool              // 可调度
+	Status              string            // 展示状态
+	Datacenter          string            // 数据中心标识
+	DatacenterName      string            // 数据中心名称
+	DatacenterShortName string            // 数据中心简称
+	DatacenterColor     string            // 数据中心颜色
+	GPUType             string            // 卡型号
+	HasIB               bool              // IB
+	IBDomain            string            // IB 域
+	Isolated            bool              // 故障隔离
+	IsolateRemark       string            // 最近一次成功隔离备注
+	PodCount            int               // Pod 数
+	PodCapacity         int               // Pod 容量
+	GPUUsed             int64             // GPU 已用
+	GPUTotal            int64             // GPU 总量
+	CPUUsedMilli        int64             // CPU 已用毫核
+	CPUTotalMilli       int64             // CPU 总量毫核
+	MemUsedBytes        int64             // 内存已用
+	MemTotalBytes       int64             // 内存总量
+	Conditions          []string          // 异常条件
+	Labels              map[string]string // 标签
+	Taints              []Taint           // 污点
 }
 
 // ListInput 是节点列表条件。
@@ -143,6 +147,33 @@ type EventListOutput struct {
 	Total int      // 总数
 }
 
+// QuotaImpactGPU 是一种卡型号在隔离前后的额度变化。
+type QuotaImpactGPU struct {
+	Type      string // 卡型号
+	Current   int64  // 当前可调度卡数
+	After     int64  // 隔离后可调度卡数
+	Allocated int    // 队列已划分卡数
+}
+
+// QuotaImpactDC 是一个数据中心在隔离前后的额度变化。
+type QuotaImpactDC struct {
+	DatacenterCode string           // 数据中心标识
+	CPUCurrent     int64            // 当前可调度 CPU 核
+	CPUAfter       int64            // 隔离后 CPU 核
+	CPUAllocated   int              // 队列已划分 CPU
+	MemCurrentGi   int64            // 当前可调度内存 GiB
+	MemAfterGi     int64            // 隔离后内存 GiB
+	MemAllocated   int              // 队列已划分内存
+	GPUTypes       []QuotaImpactGPU // 有变化的卡型号
+}
+
+// QuotaImpact 是将指定节点隔离后的队列额度变化。
+type QuotaImpact struct {
+	Changed       bool            // 可调度总量是否下降
+	OverAllocated bool            // 隔离后是否低于已划分额度
+	Datacenters   []QuotaImpactDC // 有变化的数据中心；无变化时为空切片
+}
+
 // MutateInput 是批量节点变更。
 type MutateInput struct {
 	ClusterID int64             // 集群
@@ -168,6 +199,9 @@ type Service interface {
 	Isolate(ctx context.Context, in MutateInput) error
 	// Recover 整节点入池。
 	Recover(ctx context.Context, in MutateInput) error
+	// PreviewIsolateQuotaImpact 预览隔离指定节点后对队列额度的影响。
+	// 节点不存在时返回 CodeNotFound。queue 未装配时返回无变化。
+	PreviewIsolateQuotaImpact(ctx context.Context, clusterID int64, names []string) (*QuotaImpact, error)
 	// ListEvents 列出维护记录。
 	ListEvents(ctx context.Context, in EventListInput) (*EventListOutput, error)
 }
@@ -177,17 +211,18 @@ var _ Service = (*serviceImpl)(nil)
 type serviceImpl struct {
 	clusterSvc cluster.Service    // 集群服务
 	dcSvc      datacenter.Service // 数据中心服务
+	queueSvc   queue.Service      // 队列服务，可选；未装配时隔离额度预览为空
 }
 
-// New 构造节点服务。
-func New(clusterSvc cluster.Service, dcSvc datacenter.Service) (Service, error) {
+// New 构造节点服务。queueSvc 允许为 nil，隔离额度预览将返回无变化。
+func New(clusterSvc cluster.Service, dcSvc datacenter.Service, queueSvc queue.Service) (Service, error) {
 	if clusterSvc == nil {
 		return nil, gerror.New("cluster service is required")
 	}
 	if dcSvc == nil {
 		return nil, gerror.New("datacenter service is required")
 	}
-	return &serviceImpl{clusterSvc: clusterSvc, dcSvc: dcSvc}, nil
+	return &serviceImpl{clusterSvc: clusterSvc, dcSvc: dcSvc, queueSvc: queueSvc}, nil
 }
 
 func normalizeNames(names []string) ([]string, error) {

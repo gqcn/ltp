@@ -51,6 +51,6 @@ type TrainJob struct {
 	CreatedAt           *gtime.Time `json:"createdAt"           orm:"created_at"            description:"创建时间"`
 	UpdatedAt           *gtime.Time `json:"updatedAt"           orm:"updated_at"            description:"更新时间"`
 	DeletedAt           *gtime.Time `json:"deletedAt"           orm:"deleted_at"            description:"删除时间"`
-	ListBucket          int         `json:"listBucket"          orm:"list_bucket"           description:""`
-	PriorityOrder       int         `json:"priorityOrder"       orm:"priority_order"        description:""`
+	ListBucket          int         `json:"listBucket"          orm:"list_bucket"           description:"列表排序桶：0=排队中，1=其它"`
+	PriorityOrder       int         `json:"priorityOrder"       orm:"priority_order"        description:"优先级排序：P0=0 P1=1 P2=2 P3=3"`
 }

@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { loginAsAdmin } from "../login";
+import { ensureWorkingCluster } from "../select";
 
 const shotDir = path.resolve(process.cwd(), "../../temp/20260828");
 
@@ -51,14 +52,7 @@ test("TC014 disable queue dialog distinguishes running and queued jobs", async (
   try {
     await page.getByRole("link", { name: "队列管理" }).click();
     await expect(page.getByRole("heading", { name: "队列管理" })).toBeVisible();
-    const clusterSelect = page.getByLabel("工作集群");
-    if (await clusterSelect.count()) {
-      if ((await clusterSelect.inputValue()) !== String(clusterId)) {
-        await clusterSelect.selectOption(String(clusterId));
-        const confirm = page.getByRole("button", { name: "确认切换并刷新" });
-        if (await confirm.isVisible().catch(() => false)) await confirm.click();
-      }
-    }
+    await ensureWorkingCluster(page, clusterId!);
     await expect(page.getByText("平台管理员登录成功")).toHaveCount(0, { timeout: 10000 });
     await page.locator(".search-box input").fill(queueName);
     const row = page.locator("tr", { hasText: queueName });

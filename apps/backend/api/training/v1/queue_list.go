@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ListMyQueuesReq 列出当前用户可用的资源队列。
 type ListMyQueuesReq struct {
-	g.Meta    `path:"/training/queues" method:"get" tags:"Training" summary:"列出我的队列" dc:"返回当前工作集群中、与用户所属团队关联的队列额度、本月卡时与活跃任务。管理员可见全部已关联队列。" permission:"training:queue:query"`
+	g.Meta    `path:"/training/queues" method:"get" tags:"Training" summary:"列出我的队列" dc:"返回当前工作集群中可供训练使用的队列额度、本月卡时与活跃任务。算法工程师仅见自己加入的团队已关联队列；平台管理员与 SRE 可见全部已关联队列。未绑定团队的队列不返回。" permission:"training:queue:query"`
 	ClusterId int64 `json:"clusterId" v:"required|min:1" dc:"工作集群 ID" eg:"1"`
 }
 
@@ -27,26 +27,29 @@ type MyQueueJob struct {
 
 // MyQueueItem 是一条用户侧队列。
 type MyQueueItem struct {
-	Id             int64         `json:"id" dc:"队列 ID" eg:"1"`
-	Name           string        `json:"name" dc:"Volcano Queue 名" eg:"lab-default"`
-	DisplayName    string        `json:"displayName" dc:"显示名称" eg:"实验默认队列"`
-	DatacenterCode string        `json:"datacenterCode" dc:"数据中心标识" eg:"cq-lj"`
-	GpuType        string        `json:"gpuType" dc:"卡型号" eg:"NVIDIA-H200"`
-	GpuQuota       int           `json:"gpuQuota" dc:"GPU 额度" eg:"8"`
-	GpuUsed        int           `json:"gpuUsed" dc:"GPU 已用" eg:"2"`
-	CpuQuota       int           `json:"cpuQuota" dc:"CPU 额度" eg:"32"`
-	CpuUsed        int           `json:"cpuUsed" dc:"CPU 已用" eg:"8"`
-	MemQuotaGi     int           `json:"memQuotaGi" dc:"内存额度 GiB" eg:"64"`
-	MemUsedGi      int           `json:"memUsedGi" dc:"内存已用 GiB" eg:"16"`
-	Features       []string      `json:"features" dc:"功能特性" eg:"[\"ib\"]"`
-	Enabled        bool          `json:"enabled" dc:"是否启用" eg:"true"`
-	State          string        `json:"state" dc:"Volcano 状态" eg:"Open"`
-	SyncError      string        `json:"syncError" dc:"同步异常说明。正常为空。" eg:""`
-	Teams          []TeamItem    `json:"teams" dc:"关联团队"`
-	GpuHoursMonth  float64       `json:"gpuHoursMonth" dc:"本月卡时" eg:"120.5"`
-	Running        int           `json:"running" dc:"运行中任务数" eg:"1"`
-	Pending        int           `json:"pending" dc:"排队中任务数" eg:"0"`
-	ActiveJobs     []*MyQueueJob `json:"activeJobs" dc:"运行中与排队中的任务"`
+	Id                  int64         `json:"id" dc:"队列 ID" eg:"1"`
+	Name                string        `json:"name" dc:"Volcano Queue 名" eg:"lab-default"`
+	DisplayName         string        `json:"displayName" dc:"显示名称" eg:"实验默认队列"`
+	DatacenterCode      string        `json:"datacenterCode" dc:"数据中心标识" eg:"cq-lj"`
+	DatacenterName      string        `json:"datacenterName" dc:"数据中心显示名称。未登记时为空。" eg:"重庆两江"`
+	DatacenterShortName string        `json:"datacenterShortName" dc:"数据中心简称。未登记时为空。" eg:"两江"`
+	DatacenterColor     string        `json:"datacenterColor" dc:"数据中心展示色。未登记时为空。" eg:"#3b82f6"`
+	GpuType             string        `json:"gpuType" dc:"卡型号" eg:"NVIDIA-H200"`
+	GpuQuota            int           `json:"gpuQuota" dc:"GPU 额度" eg:"8"`
+	GpuUsed             int           `json:"gpuUsed" dc:"GPU 已用" eg:"2"`
+	CpuQuota            int           `json:"cpuQuota" dc:"CPU 额度" eg:"32"`
+	CpuUsed             int           `json:"cpuUsed" dc:"CPU 已用" eg:"8"`
+	MemQuotaGi          int           `json:"memQuotaGi" dc:"内存额度 GiB" eg:"64"`
+	MemUsedGi           int           `json:"memUsedGi" dc:"内存已用 GiB" eg:"16"`
+	Features            []string      `json:"features" dc:"功能特性" eg:"[\"ib\"]"`
+	Enabled             bool          `json:"enabled" dc:"是否启用" eg:"true"`
+	State               string        `json:"state" dc:"Volcano 状态" eg:"Open"`
+	SyncError           string        `json:"syncError" dc:"同步异常说明。正常为空。" eg:""`
+	Teams               []TeamItem    `json:"teams" dc:"关联团队"`
+	GpuHoursMonth       float64       `json:"gpuHoursMonth" dc:"本月卡时" eg:"120.5"`
+	Running             int           `json:"running" dc:"运行中任务数" eg:"1"`
+	Pending             int           `json:"pending" dc:"排队中任务数" eg:"0"`
+	ActiveJobs          []*MyQueueJob `json:"activeJobs" dc:"运行中与排队中的任务"`
 }
 
 // MyQueueSummary 是顶部汇总。

@@ -23,7 +23,13 @@ type Actor struct {
 	UserID   int64  // 用户 ID
 	Username string // 账号
 	Nickname string // 显示名
-	IsAdmin  bool   // 是否管理员
+	IsAdmin  bool   // 是否本地平台管理员
+	SeeAll   bool   // 是否可看全部团队数据（管理员或 SRE）
+}
+
+// seesAllTeams 表示列表与详情不受团队成员关系限制。
+func (a Actor) seesAllTeams() bool {
+	return a.IsAdmin || a.SeeAll
 }
 
 // File 是配置文件。

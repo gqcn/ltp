@@ -108,7 +108,7 @@ func TestCreateJobWritesVolcano(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err := New(clusterSvc, queueSvc, teamSvc, userSvc, cfgSvc, alertSvc)
+	svc, err := New(clusterSvc, queueSvc, dcSvc, teamSvc, userSvc, cfgSvc, alertSvc)
 	if err != nil {
 		t.Fatal(err)
 	}

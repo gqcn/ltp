@@ -14,7 +14,7 @@ type UpdateReq struct {
 	GpuQuota       int      `json:"gpuQuota" v:"min:0#额度不能为负数" dc:"GPU 额度（卡）" eg:"8"`
 	CpuQuota       int      `json:"cpuQuota" v:"min:0#额度不能为负数" dc:"CPU 额度（核）" eg:"32"`
 	MemQuotaGi     int      `json:"memQuotaGi" v:"min:0#额度不能为负数" dc:"内存额度（GiB）" eg:"64"`
-	TeamIds        []int64  `json:"teamIds" v:"required|min-length:1#请至少关联一个团队|请至少关联一个团队" dc:"关联团队 ID 列表" eg:"[1]"`
+	TeamIds        []int64  `json:"teamIds" v:"max-length:100#单次最多关联 100 个团队" dc:"关联团队 ID 列表。可为空，表示解除全部绑定。最多 100 个。" eg:"[]"`
 	Features       []string `json:"features" dc:"功能特性" eg:"[]"`
 	Weight         int      `json:"weight" d:"1" v:"min:1|max:100" dc:"权重" eg:"1"`
 	Reclaimable    *bool    `json:"reclaimable" dc:"是否允许回收。省略时保持原值。" eg:"true"`

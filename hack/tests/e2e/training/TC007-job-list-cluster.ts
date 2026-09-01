@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsAdmin } from "../login";
+import { chooseSelect, listSelectOptions } from "../select";
 
 const shotDir = path.resolve(process.cwd(), "../../temp/20260828");
 const clusterA = { id: 101, name: "ltp-a", displayName: "E2E 集群甲", status: "healthy" };
@@ -20,16 +21,17 @@ test("TC007 job list refreshes after switching working cluster", async ({ page }
   await expect(page.getByRole("heading", { name: "任务列表" })).toBeVisible();
   const clusterSelect = page.getByLabel("工作集群");
   await expect(clusterSelect).toBeVisible();
-  await expect(clusterSelect.locator("option", { hasText: clusterA.displayName })).toHaveCount(1);
-  await expect(clusterSelect.locator("option", { hasText: clusterB.displayName })).toHaveCount(1);
+  const clusterOptions = await listSelectOptions(clusterSelect);
+  expect(clusterOptions.some((item) => item.text === clusterA.displayName)).toBeTruthy();
+  expect(clusterOptions.some((item) => item.text === clusterB.displayName)).toBeTruthy();
 
-  await clusterSelect.selectOption(String(clusterA.id));
+  await chooseSelect(clusterSelect, String(clusterA.id));
   await confirmClusterSwitch(page);
   await expect(page.locator(".link-cell")).toHaveText(jobA);
   await expect(page.getByText(jobB, { exact: true })).toHaveCount(0);
   await page.screenshot({ path: path.join(shotDir, "100000-tc007-jobs-cluster-a.png") });
 
-  await clusterSelect.selectOption(String(clusterB.id));
+  await chooseSelect(clusterSelect, String(clusterB.id));
   await confirmClusterSwitch(page);
   await expect(page.locator(".link-cell")).toHaveText(jobB);
   await expect(page.getByText(jobA, { exact: true })).toHaveCount(0);

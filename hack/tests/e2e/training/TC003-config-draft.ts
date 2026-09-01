@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { loginAsLdap } from "../login";
+import { chooseSelect, listSelectOptions } from "../select";
 
 const shotDir = path.resolve(process.cwd(), "../../temp/20260827");
 
@@ -17,13 +18,12 @@ test("TC003 config draft save appears in list", async ({ page }) => {
   const name = `e2e-cfg-${Date.now()}`;
   await page.getByPlaceholder("例如 SLM 7B Phase4 预训练").fill(name);
   const team = page.locator("#cfg-edit-team");
-  const options = team.locator("option");
-  const count = await options.count();
-  if (count < 2) {
+  const options = await listSelectOptions(team);
+  if (options.filter((item) => item.value && item.value !== "0").length < 1) {
     await expect(page.getByText("请选择")).toBeVisible();
     return;
   }
-  await team.selectOption({ index: 1 });
+  await chooseSelect(team, { index: 1 });
   await page.getByRole("button", { name: "保存草稿" }).click();
   await expect(page.getByText("草稿已保存")).toBeVisible();
   await page.locator(".sidebar-nav").getByRole("link", { name: "配置管理" }).click();

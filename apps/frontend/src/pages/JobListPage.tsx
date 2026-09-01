@@ -7,6 +7,7 @@ import { Button } from "@/components/Button";
 import { ListBody } from "@/components/ListLoading";
 import { Modal } from "@/components/Modal";
 import { Pagination } from "@/components/Pagination";
+import { Select } from "@/components/Select";
 import { DcBadge } from "@/components/UsageCell";
 import { formatDuration } from "@/lib/format";
 import { CreatedAtCell, JobPriorityBadge, JobResourceCell, JobStatusBadge, isActiveJob } from "@/lib/job";
@@ -80,34 +81,48 @@ export function JobListPage() {
           <span className="search-icon">⌕</span>
           <input placeholder="搜索任务名 / 创建人..." value={keyword} onChange={(e) => { setKeyword(e.target.value); setPage(1); }} />
         </div>
-        <select className="filter-select" aria-label="按团队筛选" value={teamId} onChange={(e) => { setTeamId(e.target.value); setPage(1); }}>
-          <option value="all">全部团队</option>
-          {teams.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
-          ))}
-        </select>
-        <select className="filter-select" aria-label="按队列筛选" value={queueId} onChange={(e) => { setQueueId(e.target.value); setPage(1); }}>
-          <option value="all">全部队列</option>
-          {queues.map(([id, name]) => (
-            <option key={id} value={id}>{name}</option>
-          ))}
-        </select>
-        <select className="filter-select" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-          <option value="all">全部状态</option>
-          <option value="running">运行中</option>
-          <option value="starting">启动中</option>
-          <option value="queued">排队中</option>
-          <option value="success">成功</option>
-          <option value="failed">失败</option>
-          <option value="cancelled">已取消</option>
-        </select>
-        <select className="filter-select" aria-label="按优先级筛选" value={priority} onChange={(e) => { setPriority(e.target.value); setPage(1); }}>
-          <option value="all">全部优先级</option>
-          <option value="P0">P0 最高</option>
-          <option value="P1">P1 高</option>
-          <option value="P2">P2 中</option>
-          <option value="P3">P3 低</option>
-        </select>
+        <Select
+          variant="filter"
+          aria-label="按团队筛选"
+          value={teamId}
+          options={[{ value: "all", label: "全部团队" }, ...teams.map((t) => ({ value: String(t.id), label: t.name }))]}
+          onChange={(next) => { setTeamId(next); setPage(1); }}
+        />
+        <Select
+          variant="filter"
+          aria-label="按队列筛选"
+          value={queueId}
+          options={[{ value: "all", label: "全部队列" }, ...queues.map(([id, name]) => ({ value: String(id), label: name }))]}
+          onChange={(next) => { setQueueId(next); setPage(1); }}
+        />
+        <Select
+          variant="filter"
+          aria-label="按状态筛选"
+          value={status}
+          options={[
+            { value: "all", label: "全部状态" },
+            { value: "running", label: "运行中" },
+            { value: "starting", label: "启动中" },
+            { value: "queued", label: "排队中" },
+            { value: "success", label: "成功" },
+            { value: "failed", label: "失败" },
+            { value: "cancelled", label: "已取消" },
+          ]}
+          onChange={(next) => { setStatus(next); setPage(1); }}
+        />
+        <Select
+          variant="filter"
+          aria-label="按优先级筛选"
+          value={priority}
+          options={[
+            { value: "all", label: "全部优先级" },
+            { value: "P0", label: "P0 最高" },
+            { value: "P1", label: "P1 高" },
+            { value: "P2", label: "P2 中" },
+            { value: "P3", label: "P3 低" },
+          ]}
+          onChange={(next) => { setPriority(next); setPage(1); }}
+        />
       </div>
       <div className="card">
         <div className="card-body flush">
@@ -122,6 +137,8 @@ export function JobListPage() {
                     <th>团队 / 队列</th>
                     <th>数据中心</th>
                     <th>资源</th>
+                    <th>Loss</th>
+                    <th>进度</th>
                     <th>时长</th>
                     <th>创建人</th>
                     <th className="th-created">创建时间</th>
@@ -143,7 +160,7 @@ export function JobListPage() {
                           <div style={{ fontSize: 12.5 }}>{job.teamName || "—"}</div>
                           <div className="text-muted" style={{ fontSize: 12, marginTop: 2 }}>{job.queueDisplayName || job.queueName}</div>
                         </td>
-                        <td className="td-nowrap"><DcBadge code={job.datacenterCode} /></td>
+                        <td className="td-nowrap"><DcBadge code={job.datacenterCode} name={job.datacenterName} shortName={job.datacenterShortName} color={job.datacenterColor} /></td>
                         <td className="td-job-res">
                           <JobResourceCell
                             gpuCount={job.gpuCount}
@@ -154,6 +171,8 @@ export function JobListPage() {
                             ib={job.requireIb}
                           />
                         </td>
+                        <td className="mono">{job.loss == null ? "—" : job.loss}</td>
+                        <td className="mono">{job.step == null ? "—" : job.maxSteps ? `${job.step}/${job.maxSteps}` : String(job.step)}</td>
                         <td className="mono td-nowrap">{formatDuration(job.durationMs)}</td>
                         <td className="td-nowrap">{job.ownerNickname}</td>
                         <td className="mono text-muted td-created"><CreatedAtCell ms={job.createdAt} /></td>
@@ -170,7 +189,7 @@ export function JobListPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={10}><div className="empty-state">{clusterId ? "没有匹配的任务" : "请先在运维中心接入工作集群"}</div></td>
+                      <td colSpan={12}><div className="empty-state">{clusterId ? "没有匹配的任务" : "请先在运维中心接入工作集群"}</div></td>
                     </tr>
                   )}
                 </tbody>

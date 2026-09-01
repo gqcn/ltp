@@ -6,6 +6,7 @@ import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
 import { ListBody } from "@/components/ListLoading";
 import { Pagination } from "@/components/Pagination";
+import { Select } from "@/components/Select";
 import { formatTime } from "@/lib/format";
 import { frameworkLabel } from "@/lib/job";
 import { toast } from "@/lib/toast";
@@ -61,29 +62,50 @@ export function ConfigListPage() {
           <span className="search-icon">⌕</span>
           <input placeholder="搜索配置名称..." value={keyword} onChange={(e) => { setKeyword(e.target.value); setPage(1); }} />
         </div>
-        <select className="filter-select" value={teamId} onChange={(e) => { setTeamId(e.target.value); setPage(1); }}>
-          <option value="all">全部团队</option>
-          {(teamsQuery.data?.list ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
-        <select className="filter-select" value={scope} onChange={(e) => { setScope(e.target.value); setPage(1); }}>
-          <option value="all">全部范围</option>
-          <option value="mine">我创建的</option>
-          <option value="team">团队共享</option>
-          <option value="private">仅自己可见</option>
-          <option value="draft">有个人草稿</option>
-        </select>
-        <select className="filter-select" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-          <option value="all">全部状态</option>
-          <option value="active">使用中</option>
-          <option value="archived">已归档</option>
-        </select>
-        <select className="filter-select" value={framework} onChange={(e) => { setFramework(e.target.value); setPage(1); }}>
-          <option value="all">全部框架</option>
-          <option value="megatron">Megatron</option>
-          <option value="nemo">NeMo</option>
-          <option value="accelerate">Accelerate</option>
-          <option value="custom">自定义</option>
-        </select>
+        <Select
+          variant="filter"
+          aria-label="按团队筛选"
+          value={teamId}
+          options={[{ value: "all", label: "全部团队" }, ...(teamsQuery.data?.list ?? []).map((t) => ({ value: String(t.id), label: t.name }))]}
+          onChange={(next) => { setTeamId(next); setPage(1); }}
+        />
+        <Select
+          variant="filter"
+          aria-label="按范围筛选"
+          value={scope}
+          options={[
+            { value: "all", label: "全部范围" },
+            { value: "mine", label: "我创建的" },
+            { value: "team", label: "团队共享" },
+            { value: "private", label: "仅自己可见" },
+            { value: "draft", label: "有个人草稿" },
+          ]}
+          onChange={(next) => { setScope(next); setPage(1); }}
+        />
+        <Select
+          variant="filter"
+          aria-label="按状态筛选"
+          value={status}
+          options={[
+            { value: "all", label: "全部状态" },
+            { value: "active", label: "使用中" },
+            { value: "archived", label: "已归档" },
+          ]}
+          onChange={(next) => { setStatus(next); setPage(1); }}
+        />
+        <Select
+          variant="filter"
+          aria-label="按框架筛选"
+          value={framework}
+          options={[
+            { value: "all", label: "全部框架" },
+            { value: "megatron", label: "Megatron" },
+            { value: "nemo", label: "NeMo" },
+            { value: "accelerate", label: "Accelerate" },
+            { value: "custom", label: "自定义" },
+          ]}
+          onChange={(next) => { setFramework(next); setPage(1); }}
+        />
       </div>
       <div className="card">
         <div className="card-body flush">

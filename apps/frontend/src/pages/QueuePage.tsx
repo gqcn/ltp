@@ -11,6 +11,7 @@ import { ListBody, ListLoading } from "@/components/ListLoading";
 import { FieldError, FieldHelp } from "@/components/Field";
 import { Modal } from "@/components/Modal";
 import { Pagination } from "@/components/Pagination";
+import { Select } from "@/components/Select";
 import { errText, focusField, groupClass, invalidProps, LINE_MAX, useZodForm, zLine, zNonNegative, zRequired, zTextOpt, zVolcanoQueueName } from "@/lib/form";
 import { DcBadge, QuotaMini } from "@/components/UsageCell";
 import { quotaBarClass } from "@/lib/resources";
@@ -42,7 +43,7 @@ function queueSchema(editing: boolean) {
     gpuQuota: zNonNegative("额度不能为负数"),
     cpuQuota: zNonNegative("额度不能为负数"),
     memQuotaGi: zNonNegative("额度不能为负数"),
-    teamIds: z.array(z.number()).min(1, "请至少关联一个团队"),
+    teamIds: z.array(z.number()),
     features: z.array(z.string()),
     weight: z.coerce.number(),
     reclaimable: z.boolean(),
@@ -272,49 +273,40 @@ export function QueuePage() {
             }}
           />
         </div>
-        <select
-          className="filter-select"
+        <Select
+          variant="filter"
+          aria-label="按数据中心筛选"
           value={dc}
-          onChange={(e) => {
+          options={[{ value: "all", label: "全部数据中心" }, ...enabledDcs.map((item) => ({ value: item.code, label: item.name }))]}
+          onChange={(next) => {
             setPage(1);
-            setDc(e.target.value);
+            setDc(next);
           }}
-        >
-          <option value="all">全部数据中心</option>
-          {enabledDcs.map((item) => (
-            <option key={item.code} value={item.code}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="filter-select"
+        />
+        <Select
+          variant="filter"
+          aria-label="按卡型号筛选"
           value={gpuType}
-          onChange={(e) => {
+          options={[{ value: "all", label: "全部卡型号" }, ...[...new Set(rows.map((q) => q.gpuType).filter(Boolean))].map((t) => ({ value: t, label: t }))]}
+          onChange={(next) => {
             setPage(1);
-            setGpuType(e.target.value);
+            setGpuType(next);
           }}
-        >
-          <option value="all">全部卡型号</option>
-          {[...new Set(rows.map((q) => q.gpuType).filter(Boolean))].map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-        <select
-          className="filter-select"
+        />
+        <Select
+          variant="filter"
           aria-label="按状态筛选"
           value={status}
-          onChange={(e) => {
+          options={[
+            { value: "all", label: "全部状态" },
+            { value: "enabled", label: "启用" },
+            { value: "disabled", label: "禁用" },
+          ]}
+          onChange={(next) => {
             setPage(1);
-            setStatus(e.target.value);
+            setStatus(next);
           }}
-        >
-          <option value="all">全部状态</option>
-          <option value="enabled">启用</option>
-          <option value="disabled">禁用</option>
-        </select>
+        />
       </div>
       <div className="card">
         <div className="card-body flush">
@@ -369,7 +361,7 @@ export function QueuePage() {
                             )}
                           </td>
                           <td>
-                            <DcBadge code={q.datacenterCode} name={dcItem?.name} shortName={dcItem?.shortName} color={dcItem?.color} />
+                            <DcBadge code={q.datacenterCode} name={q.datacenterName || dcItem?.name} shortName={q.datacenterShortName || dcItem?.shortName} color={q.datacenterColor || dcItem?.color} />
                           </td>
                           <td className="td-gpu-type">
                             <span className="gpu-type-text" title={q.gpuType}>
@@ -477,10 +469,8 @@ export function QueuePage() {
           </div>
           <div className={groupClass(teamError, "full")}>
             <div className="field-label-row">
-              <label htmlFor="q-form-team-search">
-                关联团队 <span className="req">*</span>
-              </label>
-              <FieldHelp tip="一个队列可关联多个团队。关联后，这些团队的成员提交任务时均可选择该队列。" label="关联团队说明" />
+              <label htmlFor="q-form-team-search">关联团队</label>
+              <FieldHelp tip="可先不关联团队。关联后，这些团队的成员提交任务时均可选择该队列。" label="关联团队说明" />
             </div>
             <div className="user-picker" id="q-team-picker">
               <div className="user-picker-control">
@@ -586,18 +576,24 @@ export function QueuePage() {
             <label htmlFor="q-form-dc">
               数据中心 <span className="req">*</span>
             </label>
-            <select
-              id="q-form-dc"
-              {...methods.register("datacenterCode")}
-              {...invalidProps("q-form-dc", dcError)}
-            >
-              {enabledDcs.length ? null : <option value="">请先创建数据中心</option>}
-              {enabledDcs.map((item) => (
-                <option key={item.code} value={item.code}>
-                  {item.name}（{item.code}）
-                </option>
-              ))}
-            </select>
+            <Controller
+              name="datacenterCode"
+              control={methods.control}
+              render={({ field }) => (
+                <Select
+                  id="q-form-dc"
+                  value={field.value}
+                  options={
+                    enabledDcs.length
+                      ? enabledDcs.map((item) => ({ value: item.code, label: `${item.name}（${item.code}）` }))
+                      : [{ value: "", label: "请先创建数据中心" }]
+                  }
+                  onChange={field.onChange}
+                  disabled={!enabledDcs.length}
+                  {...invalidProps("q-form-dc", dcError)}
+                />
+              )}
+            />
             <FieldError id="q-form-dc-error">{dcError}</FieldError>
           </div>
           <div className="form-group full">
@@ -619,19 +615,24 @@ export function QueuePage() {
             <label htmlFor="q-form-gpu">
               GPU 型号 <span className="req">*</span>
             </label>
-            <select
-              id="q-form-gpu"
-              disabled={!gpuOptions.length}
-              {...methods.register("gpuType")}
-              {...invalidProps("q-form-gpu", gpuError)}
-            >
-              {!gpuOptions.length ? <option value="">请选择 GPU 型号</option> : null}
-              {gpuOptions.map((o) => (
-                <option key={o.type} value={o.type}>
-                  {o.hasIB ? `${o.type} · IB` : o.type}
-                </option>
-              ))}
-            </select>
+            <Controller
+              name="gpuType"
+              control={methods.control}
+              render={({ field }) => (
+                <Select
+                  id="q-form-gpu"
+                  value={field.value}
+                  disabled={!gpuOptions.length}
+                  options={
+                    gpuOptions.length
+                      ? gpuOptions.map((o) => ({ value: o.type, label: o.hasIB ? `${o.type} · IB` : o.type }))
+                      : [{ value: "", label: "请选择 GPU 型号" }]
+                  }
+                  onChange={field.onChange}
+                  {...invalidProps("q-form-gpu", gpuError)}
+                />
+              )}
+            />
             <p className={`queue-gpu-filter-hint text-muted ${!gpuOptions.length ? "is-warn" : ""}`} aria-live="polite">
               {gpuHint(form.features, gpuOptions.length)}
             </p>
@@ -721,7 +722,7 @@ export function QueuePage() {
           )}
         </p>
         <p className="modal-meta">
-          {[pending?.item.name, pending?.item.teams.map((t) => t.name).join("、") || "—", pending?.item.datacenterCode, pending?.item.gpuType].filter(Boolean).join(" · ")}
+          {[pending?.item.name, pending?.item.teams.map((t) => t.name).join("、") || "—", pending?.item.datacenterShortName || pending?.item.datacenterName || pending?.item.datacenterCode, pending?.item.gpuType].filter(Boolean).join(" · ")}
         </p>
         <p className={`modal-hint ${queueHintClass(pending?.type)}`}>
           {pending?.type === "blocked"
@@ -870,7 +871,7 @@ function CapacityPanel({
           </div>
           <div className="queue-capacity-panel-meta text-muted">{gpuTypes.length} 种卡型号</div>
         </div>
-        <div className="queue-capacity-panel-caption">卡型号为各型号 GPU 资源池；CPU / 内存为当前筛选条件下的合计。已分配为各队列额度之和（不含当前队列）</div>
+        <div className="queue-capacity-panel-caption">仅统计可调度且未隔离的节点。卡型号为各型号 GPU 资源池；CPU / 内存为当前筛选条件下的合计。已分配为各队列额度之和（不含当前队列）</div>
       </div>
       <div className="queue-capacity-section-label">卡型号</div>
       <div className="queue-capacity-gpu-list">

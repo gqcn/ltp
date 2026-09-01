@@ -16,5 +16,7 @@ type ITeamV1 interface {
 	List(ctx context.Context, req *v1.ListReq) (res *v1.ListRes, err error)
 	AddMember(ctx context.Context, req *v1.AddMemberReq) (res *v1.AddMemberRes, err error)
 	RemoveMember(ctx context.Context, req *v1.RemoveMemberReq) (res *v1.RemoveMemberRes, err error)
+	ListQueueOptions(ctx context.Context, req *v1.ListQueueOptionsReq) (res *v1.ListQueueOptionsRes, err error)
+	ReplaceQueues(ctx context.Context, req *v1.ReplaceQueuesReq) (res *v1.ReplaceQueuesRes, err error)
 	Update(ctx context.Context, req *v1.UpdateReq) (res *v1.UpdateRes, err error)
 }

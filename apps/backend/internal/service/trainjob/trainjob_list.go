@@ -53,6 +53,10 @@ func (s *serviceImpl) List(ctx context.Context, in ListInput) (*ListOutput, erro
 			items = append(items, toItem(row, false))
 		}
 	}
+	s.attachExperiments(ctx, items)
+	if err := s.attachDatacenterNames(ctx, items); err != nil {
+		return nil, err
+	}
 	return &ListOutput{List: items, Total: total}, nil
 }
 
@@ -67,13 +71,150 @@ func (s *serviceImpl) Get(ctx context.Context, actor Actor, id int64) (*Item, er
 	if err != nil {
 		return nil, err
 	}
-	return toItem(row, true), nil
+	item := toItem(row, true)
+	s.attachExperiments(ctx, []*Item{item})
+	if err := s.attachDatacenterNames(ctx, []*Item{item}); err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+// MapByIDs 按主键批量返回任务。
+func (s *serviceImpl) MapByIDs(ctx context.Context, ids []int64) (map[int64]*Item, error) {
+	out := map[int64]*Item{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var rows []*entity.TrainJob
+	if err := dao.TrainJob.Ctx(ctx).WhereIn(dao.TrainJob.Columns().Id, ids).Scan(&rows); err != nil {
+		return nil, gerror.Wrap(err, "map train jobs")
+	}
+	items := make([]*Item, 0, len(rows))
+	for _, row := range rows {
+		if row == nil {
+			continue
+		}
+		item := toItem(row, true)
+		out[row.Id] = item
+		items = append(items, item)
+	}
+	if err := s.attachDatacenterNames(ctx, items); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ListJobLinksByCluster 返回集群内任务的实验关联字段。
+func (s *serviceImpl) ListJobLinksByCluster(ctx context.Context, clusterID int64) ([]JobLink, error) {
+	if clusterID <= 0 {
+		return nil, errInvalid("请选择工作集群")
+	}
+	cols := dao.TrainJob.Columns()
+	var rows []*entity.TrainJob
+	err := dao.TrainJob.Ctx(ctx).
+		Fields(
+			cols.Id,
+			cols.ClusterId,
+			cols.TeamId,
+			cols.TeamName,
+			cols.Name,
+			cols.DatacenterCode,
+			cols.OwnerUserId,
+			cols.OwnerUsername,
+			cols.OwnerNickname,
+			cols.Env,
+		).
+		Where(do.TrainJob{ClusterId: clusterID}).
+		Scan(&rows)
+	if err != nil {
+		return nil, gerror.Wrap(err, "list job links")
+	}
+	out := make([]JobLink, 0, len(rows))
+	for _, row := range rows {
+		if row == nil {
+			continue
+		}
+		logDir := ""
+		for _, entry := range decodeEnv(row.Env) {
+			if entry.Key == consts.EnvTensorBoardLogDir {
+				logDir = entry.Value
+				break
+			}
+		}
+		out = append(out, JobLink{
+			JobID:         row.Id,
+			ClusterID:     row.ClusterId,
+			TeamID:        row.TeamId,
+			TeamName:      row.TeamName,
+			Name:          row.Name,
+			Datacenter:    row.DatacenterCode,
+			OwnerUserID:   row.OwnerUserId,
+			OwnerUsername: row.OwnerUsername,
+			OwnerNickname: row.OwnerNickname,
+			LogDir:        logDir,
+		})
+	}
+	return out, nil
+}
+
+// attachDatacenterNames 按当前页标识批量写入数据中心名称。
+func (s *serviceImpl) attachDatacenterNames(ctx context.Context, items []*Item) error {
+	codes := make([]string, 0, len(items))
+	for _, item := range items {
+		if item != nil {
+			codes = append(codes, item.DatacenterCode)
+		}
+	}
+	refs, err := s.dcSvc.MapByCodes(ctx, codes)
+	if err != nil {
+		return err
+	}
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		ref, ok := refs[item.DatacenterCode]
+		if !ok {
+			continue
+		}
+		item.DatacenterName = ref.Name
+		item.DatacenterShortName = ref.ShortName
+		item.DatacenterColor = ref.Color
+	}
+	return nil
+}
+
+// attachExperiments 按当前页任务批量装配实验快照，禁止按行查询。
+func (s *serviceImpl) attachExperiments(ctx context.Context, items []*Item) {
+	if s.runLinker == nil || len(items) == 0 {
+		return
+	}
+	ids := make([]int64, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.ID)
+	}
+	refs, err := s.runLinker.MapByJobIDs(ctx, ids)
+	if err != nil {
+		logger.Warningf(ctx, "attach experiments: %v", err)
+		return
+	}
+	for _, item := range items {
+		ref, ok := refs[item.ID]
+		if !ok {
+			continue
+		}
+		item.ExperimentID = ref.ID
+		item.ExperimentName = ref.Name
+		item.Loss = ref.Loss
+		item.Step = ref.Step
+		item.MaxSteps = ref.MaxSteps
+	}
 }
 
 func (s *serviceImpl) listModel(ctx context.Context, in ListInput) (*gdb.Model, error) {
 	cols := dao.TrainJob.Columns()
 	mod := dao.TrainJob.Ctx(ctx).Where(do.TrainJob{ClusterId: in.ClusterID})
-	if !in.Actor.IsAdmin {
+	if !in.Actor.seesAllTeams() {
 		teamIDs, err := s.teamSvc.ListIDsByUserID(ctx, in.Actor.UserID)
 		if err != nil {
 			return nil, err
@@ -120,7 +261,7 @@ func (s *serviceImpl) mustVisible(ctx context.Context, actor Actor, id int64) (*
 	if row == nil {
 		return nil, bizerr.New(CodeNotFound)
 	}
-	if actor.IsAdmin {
+	if actor.seesAllTeams() {
 		return row, nil
 	}
 	ids, err := s.teamSvc.ListIDsByUserID(ctx, actor.UserID)

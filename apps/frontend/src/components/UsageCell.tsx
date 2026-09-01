@@ -67,9 +67,10 @@ export function DcBadge({ code, name, shortName, color }: { code: string; name?:
   if (!code) {
     return <span className="text-muted">未分配</span>;
   }
+  const label = shortName || name || code;
   return (
-    <span className="dc-badge" title={name || code} style={{ ["--dc-color" as string]: color || "#64748b" }}>
-      {shortName || name || code}
+    <span className="dc-badge" title={name ? `${name}（${code}）` : code} style={{ ["--dc-color" as string]: color || "#64748b" }}>
+      {label}
     </span>
   );
 }

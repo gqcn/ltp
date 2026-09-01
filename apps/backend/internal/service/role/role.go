@@ -75,6 +75,11 @@ func ParseCode(raw string) (Code, bool) {
 	}
 }
 
+// SeesAllTeamData 表示平台管理员与 SRE 可查看全部团队的训练数据，不受成员关系限制。
+func SeesAllTeamData(isAdmin bool, code Code) bool {
+	return isAdmin || code == CodeSRE
+}
+
 // AllMenus 返回管理员可见的全部菜单分区。
 func AllMenus() []string {
 	return []string{string(MenuTraining), string(MenuOps), string(MenuPlatform)}

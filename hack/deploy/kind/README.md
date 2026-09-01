@@ -27,4 +27,6 @@ kubectl --context kind-ltp get nodes -o custom-columns=NAME:.metadata.name,GPU:.
 kubectl --context kind-ltp get queue
 ```
 
+`make kind.up`会构建并加载`ltp/experiment-agent:dev`，供实验分析读盘与`TensorBoard`看板使用。本地节点没有真实`NFS`时，读盘失败外层显示`—`，不把训练任务标为失败。
+
 旧的单控制面`ltp`集群无法在线加入 worker。请先`make kind.down`再`make kind.up`。

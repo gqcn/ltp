@@ -1,15 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Controller } from "react-hook-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
-import { createJob, getConfig, getConfigVersion, getJob, listConfigs, listMyQueues, listRunUsers, listTrainingTeams, type ConfigFile, type ConfigItem, type MyQueue, type RunUser } from "@/api/training";
+import { createJob, getConfig, getConfigVersion, getJob, listConfigs, listExperimentProjects, listMyQueues, listRunUsers, type ConfigFile, type ConfigItem, type MyQueue, type RunUser } from "@/api/training";
 import { readSession } from "@/api/auth";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
 import { CodeEditor, CodeViewer } from "@/components/CodeEditor";
 import { FieldError, FieldHelp } from "@/components/Field";
 import { Modal } from "@/components/Modal";
+import { Select } from "@/components/Select";
 import { cn } from "@/lib/cn";
 import { errText, groupClass, invalidProps, K8S_QNAME_MAX, useZodForm, zRequired, zVolcanoJobName } from "@/lib/form";
 import { initials } from "@/lib/format";
@@ -31,6 +32,7 @@ const schema = z.object({
   command: zRequired("请填写启动命令"),
   envText: z.string(),
   runUserId: z.number().optional(),
+  projectId: z.coerce.number().optional(),
 });
 
 type Form = z.infer<typeof schema>;
@@ -146,17 +148,21 @@ export function JobCreatePage() {
   const presetQueue = Number(params.get("queueId") || 0);
   const presetConfig = Number(params.get("configId") || 0);
   const presetConfigVer = Number(params.get("configVersion") || 0);
+  const presetProject = Number(params.get("projectId") || 0);
   const { clusterId } = useWorkingCluster("training");
   const session = useQuery({ queryKey: ["session"], queryFn: readSession });
   const user = session.data?.user;
   const isAdmin = Boolean(user?.isAdmin);
   const [tab, setTab] = useState<(typeof tabs)[number]["id"]>("basic");
+  const [tabsStuck, setTabsStuck] = useState(false);
   const [runQuery, setRunQuery] = useState("");
   const [runUser, setRunUser] = useState<RunUser | null>(null);
   const [runPickerOpen, setRunPickerOpen] = useState(false);
   const [mounts, setMounts] = useState<MountDraft[]>([]);
   const [pendingUnmount, setPendingUnmount] = useState<MountDraft | null>(null);
   const runSearchRef = useRef<HTMLInputElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const tabScrollLock = useRef(false);
   const workdirDefaultRef = useRef("");
   const rerunFilledRef = useRef(0);
 
@@ -174,13 +180,34 @@ export function JobCreatePage() {
       image: "",
       command: "",
       envText: "",
+      projectId: presetProject,
     },
   });
   const form = methods.watch();
-  const teamsQuery = useQuery({ queryKey: ["training-teams"], queryFn: listTrainingTeams });
   const queuesQuery = useQuery({
     queryKey: ["training-my-queues", clusterId],
     queryFn: () => listMyQueues(clusterId!),
+    enabled: Boolean(clusterId),
+  });
+  const teamsForSubmit = useMemo(() => {
+    const names = new Map<number, string>();
+    for (const q of queuesQuery.data?.list ?? []) {
+      if (!q.enabled || q.syncError) {
+        continue;
+      }
+      for (const t of q.teams) {
+        if (t.id > 0) {
+          names.set(t.id, t.name);
+        }
+      }
+    }
+    return [...names.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "zh"));
+  }, [queuesQuery.data]);
+  const projectsQuery = useQuery({
+    queryKey: ["exp-projects", clusterId],
+    queryFn: () => listExperimentProjects(clusterId!),
     enabled: Boolean(clusterId),
   });
   const rerunQuery = useQuery({
@@ -217,7 +244,6 @@ export function JobCreatePage() {
   useEffect(() => {
     const job = rerunQuery.data;
     if (!rerunId || !job || !session.isFetched) return;
-    if (!teamsQuery.isFetched) return;
     if (clusterId && !queuesQuery.isFetched) return;
     if (rerunFilledRef.current === job.id) return;
     rerunFilledRef.current = job.id;
@@ -235,6 +261,7 @@ export function JobCreatePage() {
       image: job.image,
       command: job.command,
       envText: (job.env || []).map((e) => `${e.key}=${e.value}`).join("\n"),
+      projectId: methods.getValues("projectId") || presetProject,
     });
     const username = job.ownerUsername || user?.username || "";
     const nextName = rerunJobName(job.name);
@@ -257,7 +284,19 @@ export function JobCreatePage() {
       setRunQuery("");
       setRunPickerOpen(false);
     });
-  }, [rerunQuery.data, session.isFetched, teamsQuery.isFetched, queuesQuery.isFetched, clusterId, isAdmin, methods]);
+  }, [rerunQuery.data, session.isFetched, queuesQuery.isFetched, clusterId, isAdmin, methods]);
+
+  useEffect(() => {
+    if (!queuesQuery.isFetched) {
+      return;
+    }
+    const teamId = Number(methods.getValues("teamId"));
+    if (!teamId || teamsForSubmit.some((item) => item.id === teamId)) {
+      return;
+    }
+    methods.setValue("teamId", 0);
+    methods.setValue("queueId", 0);
+  }, [queuesQuery.isFetched, teamsForSubmit, methods]);
 
   useEffect(() => {
     if (!presetConfig || mounts.length) return;
@@ -323,6 +362,7 @@ export function JobCreatePage() {
         }),
         runUserId: isAdmin ? runUser?.id : undefined,
         rerunFromId: rerunId || undefined,
+        projectId: Number(form.projectId) || undefined,
       }),
     onSuccess: (data) => {
       toast.success(rerunId ? "重跑任务已提交" : "任务已提交");
@@ -383,9 +423,46 @@ export function JobCreatePage() {
   };
   const tabDone = { basic: basicDone, resources: resDone, launch: launchDone, configs: mountCount > 0 };
 
+  useEffect(() => {
+    function syncTabsFromScroll() {
+      const tabsEl = tabsRef.current;
+      if (!tabsEl) {
+        return;
+      }
+      const topbarBottom = document.querySelector(".topbar")?.getBoundingClientRect().bottom ?? 56;
+      setTabsStuck(tabsEl.getBoundingClientRect().top <= topbarBottom + 0.5);
+      if (tabScrollLock.current) {
+        return;
+      }
+      const offset = tabsEl.getBoundingClientRect().bottom + 12;
+      let current: (typeof tabs)[number]["id"] = tabs[0].id;
+      for (const item of tabs) {
+        const section = document.getElementById(`create-section-${item.id}`);
+        if (!section) {
+          continue;
+        }
+        if (section.getBoundingClientRect().top <= offset) {
+          current = item.id;
+        }
+      }
+      setTab((prev) => (prev === current ? prev : current));
+    }
+    syncTabsFromScroll();
+    window.addEventListener("scroll", syncTabsFromScroll, true);
+    window.addEventListener("resize", syncTabsFromScroll);
+    return () => {
+      window.removeEventListener("scroll", syncTabsFromScroll, true);
+      window.removeEventListener("resize", syncTabsFromScroll);
+    };
+  }, []);
+
   function goTab(id: (typeof tabs)[number]["id"]) {
     setTab(id);
+    tabScrollLock.current = true;
     document.getElementById(`create-section-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => {
+      tabScrollLock.current = false;
+    }, 450);
   }
 
   return (
@@ -407,7 +484,7 @@ export function JobCreatePage() {
       ) : null}
       <div className="wizard-layout">
         <div className="card job-create-form-card">
-          <div className="tabs create-form-tabs" role="navigation" aria-label="任务表单章节">
+          <div id="create-form-tabs" ref={tabsRef} className={cn("tabs create-form-tabs", tabsStuck && "is-stuck")} role="navigation" aria-label="任务表单章节">
             {tabs.map((item, idx) => (
               <button key={item.id} type="button" className={`tab ${tab === item.id ? "active" : ""} ${tabDone[item.id] ? "is-done" : ""}`} onClick={() => goTab(item.id)}>
                 <span className="num">{idx + 1}</span>
@@ -422,7 +499,7 @@ export function JobCreatePage() {
               <div className="tab-panel create-form-section" id="create-section-basic" data-panel="basic">
                 <div className="form-section-title"><span className="num">1</span> 基本信息</div>
                 <div className="form-grid">
-                  <div className={groupClass(nameError, "full")}>
+                  <div className={groupClass(nameError)}>
                     <div className="field-label-row">
                       <label htmlFor="create-name">任务名称 <span className="req">*</span></label>
                       <FieldHelp tip="即 Volcano Job 对象名，须符合 Kubernetes DNS-1123：小写字母、数字、连字符与点，最长 63，不能以连字符或点开头或结尾，也不能使用下划线或大写。重跑时可沿用原名称或追加后缀。" label="任务名称说明" />
@@ -431,7 +508,7 @@ export function JobCreatePage() {
                     <FieldError id="create-name-error">{nameError}</FieldError>
                   </div>
                   {isAdmin ? (
-                    <div className="form-group full" id="create-run-user-group">
+                    <div className="form-group" id="create-run-user-group">
                       <div className="field-label-row">
                         <label htmlFor="create-run-user-search">运行用户 <span className="req">*</span></label>
                         <FieldHelp tip="本地 admin 不在 LDAP 中，不能作为容器运行身份。请检索平台已接入的 LDAP 用户；任务将以该用户 UID 与家目录运行。" label="运行用户说明" />
@@ -514,16 +591,38 @@ export function JobCreatePage() {
                           </div>
                         ) : null}
                       </div>
-                      <p className="field-help-text" id="create-run-user-hint">本地 admin 不在 LDAP。须指定一名平台 LDAP 用户作为运行身份，工作路径默认 /data/hpc/home/&lt;账号&gt;。</p>
                     </div>
                   ) : null}
-                  <div className={groupClass(workdirError, "full")}>
+                  <div className={groupClass(workdirError)}>
                     <div className="field-label-row">
                       <label htmlFor="create-workdir">工作路径 <span className="req">*</span></label>
                       <FieldHelp tip="容器内训练进程的工作路径。默认 /data/hpc/home/&lt;运行用户账号&gt;，可按任务修改。" label="工作路径说明" />
                     </div>
                     <input id="create-workdir" className="mono" placeholder={isAdmin && !runUser ? WORKDIR_PLACEHOLDER : undefined} {...methods.register("workdir")} {...invalidProps("create-workdir", workdirError)} />
                     <FieldError id="create-workdir-error">{workdirError}</FieldError>
+                  </div>
+                  <div className={isAdmin ? "form-group" : "form-group full"}>
+                    <div className="field-label-row">
+                      <label htmlFor="create-project">实验项目</label>
+                      <FieldHelp tip="提交成功后会在该项目下创建一条实验 Run。不选则挂到默认项目。" label="实验项目说明" />
+                    </div>
+                    <Controller
+                      name="projectId"
+                      control={methods.control}
+                      render={({ field }) => (
+                        <Select
+                          id="create-project"
+                          value={String(field.value || 0)}
+                          options={[
+                            { value: "0", label: "默认项目" },
+                            ...(projectsQuery.data?.list ?? [])
+                              .filter((p) => p.name !== "default")
+                              .map((p) => ({ value: String(p.id), label: p.displayName || p.name })),
+                          ]}
+                          onChange={(next) => field.onChange(Number(next))}
+                        />
+                      )}
+                    />
                   </div>
                   <div className="form-group full">
                     <div className="field-label-row">
@@ -551,14 +650,24 @@ export function JobCreatePage() {
                   <div className={groupClass(teamError)}>
                     <div className="field-label-row">
                       <label htmlFor="create-team">所属团队 <span className="req">*</span></label>
-                      <FieldHelp tip="普通用户仅见自己加入的团队；平台管理员可选全部团队" label="所属团队说明" />
+                      <FieldHelp tip="仅列出当前工作集群中已关联可用队列的团队，未绑定队列的团队不出现。普通用户仅见自己加入的团队；平台管理员与 SRE 可见本集群全部已关联队列的团队。" label="所属团队说明" />
                     </div>
-                    <select id="create-team" {...methods.register("teamId", { valueAsNumber: true })} {...invalidProps("create-team", teamError)}>
-                      <option value={0}>请选择</option>
-                      {(teamsQuery.data?.list ?? []).map((t) => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </select>
+                    <Controller
+                      name="teamId"
+                      control={methods.control}
+                      render={({ field }) => (
+                        <Select
+                          id="create-team"
+                          value={String(field.value ?? 0)}
+                          options={[
+                            { value: "0", label: "请选择" },
+                            ...teamsForSubmit.map((t) => ({ value: String(t.id), label: t.name })),
+                          ]}
+                          onChange={(next) => field.onChange(Number(next))}
+                          {...invalidProps("create-team", teamError)}
+                        />
+                      )}
+                    />
                     <FieldError id="create-team-error">{teamError}</FieldError>
                   </div>
                   <div className={groupClass(queueError)}>
@@ -566,12 +675,24 @@ export function JobCreatePage() {
                       <label htmlFor="create-queue">资源队列 <span className="req">*</span></label>
                       <FieldHelp tip="展示所选团队关联的资源队列；平台管理员可见该团队全部队列" label="资源队列说明" />
                     </div>
-                    <select id="create-queue" {...methods.register("queueId", { valueAsNumber: true })} {...invalidProps("create-queue", queueError)}>
-                      <option value={0}>请选择</option>
-                      {queues.filter((q) => (q.enabled && !q.syncError) || q.id === Number(form.queueId)).map((q) => (
-                        <option key={q.id} value={q.id}>{q.displayName}</option>
-                      ))}
-                    </select>
+                    <Controller
+                      name="queueId"
+                      control={methods.control}
+                      render={({ field }) => (
+                        <Select
+                          id="create-queue"
+                          value={String(field.value ?? 0)}
+                          options={[
+                            { value: "0", label: "请选择" },
+                            ...queues
+                              .filter((q) => (q.enabled && !q.syncError) || q.id === Number(form.queueId))
+                              .map((q) => ({ value: String(q.id), label: q.displayName })),
+                          ]}
+                          onChange={(next) => field.onChange(Number(next))}
+                          {...invalidProps("create-queue", queueError)}
+                        />
+                      )}
+                    />
                     <FieldError id="create-queue-error">{queueError}</FieldError>
                   </div>
                 </div>
@@ -637,9 +758,14 @@ export function JobCreatePage() {
                       <span className="field-lock-hint" title="由所选队列锁定">锁定</span>
                       <FieldHelp tip="随队列锁定，不可随意切换数据中心卡型" label="GPU 型号说明" />
                     </div>
-                    <select id="create-gpu-type" disabled title="由所选队列决定" value={selectedQueue?.gpuType || ""}>
-                      <option value={selectedQueue?.gpuType || ""}>{selectedQueue?.gpuType || "—"}</option>
-                    </select>
+                    <Select
+                      id="create-gpu-type"
+                      disabled
+                      title="由所选队列决定"
+                      value={selectedQueue?.gpuType || ""}
+                      options={[{ value: selectedQueue?.gpuType || "", label: selectedQueue?.gpuType || "—" }]}
+                      onChange={() => undefined}
+                    />
                   </div>
                   <div className="form-group">
                     <div className="field-label-row">
@@ -857,51 +983,53 @@ function ConfigMountCard({
       <div className="cfg-mount-grid">
         <div className="form-group">
           <label>配置集</label>
-          <select
-            value={mount.setId}
-            onChange={(e) => onChange({ ...mount, setId: Number(e.target.value), version: LATEST_AT_SUBMIT, selected: null, preview: false })}
-          >
-            <option value={0}>选择配置集</option>
-            {configs.map((c) => (
-              <option key={c.id} value={c.id}>{c.displayName}</option>
-            ))}
-          </select>
+          <Select
+            aria-label="配置集"
+            value={String(mount.setId)}
+            options={[
+              { value: "0", label: "选择配置集" },
+              ...configs.map((c) => ({ value: String(c.id), label: c.displayName })),
+            ]}
+            onChange={(next) => onChange({ ...mount, setId: Number(next), version: LATEST_AT_SUBMIT, selected: null, preview: false })}
+          />
         </div>
         <div className="form-group">
           <label>版本</label>
-          <select
+          <Select
+            aria-label="版本"
             value={mount.setId ? (mount.version === LATEST_AT_SUBMIT ? LATEST_AT_SUBMIT : String(mount.version)) : ""}
-            onChange={(e) => {
-              const value = e.target.value;
+            options={
+              mount.setId
+                ? [
+                    { value: LATEST_AT_SUBMIT, label: "提交时最新（提交瞬间钉死，不会跟着改）" },
+                    { value: "__sep__", label: "────────", isDisabled: true },
+                    ...versions.map((v) => ({
+                      value: String(v.version),
+                      label: `v${v.version}${v.version === latest ? " · 当前最新" : ""}`,
+                    })),
+                  ]
+                : [{ value: "", label: "先选择配置集" }]
+            }
+            onChange={(next) => {
               onChange({
                 ...mount,
-                version: value === LATEST_AT_SUBMIT ? LATEST_AT_SUBMIT : Number(value),
+                version: next === LATEST_AT_SUBMIT ? LATEST_AT_SUBMIT : Number(next),
                 selected: null,
               });
             }}
-          >
-            {mount.setId ? (
-              <>
-                <option value={LATEST_AT_SUBMIT}>提交时最新（提交瞬间钉死，不会跟着改）</option>
-                <option disabled>────────</option>
-                {versions.map((v) => (
-                  <option key={v.version} value={v.version}>v{v.version}{v.version === latest ? " · 当前最新" : ""}</option>
-                ))}
-              </>
-            ) : (
-              <option value="">先选择配置集</option>
-            )}
-          </select>
+          />
         </div>
         <div className="form-group">
           <label>挂载方式</label>
-          <select
+          <Select
+            aria-label="挂载方式"
             value={mount.mode}
-            onChange={(e) => onChange({ ...mount, mode: e.target.value as MountMode, selected: null })}
-          >
-            <option value="dir">整包目录</option>
-            <option value="files">按文件</option>
-          </select>
+            options={[
+              { value: "dir", label: "整包目录" },
+              { value: "files", label: "按文件" },
+            ]}
+            onChange={(next) => onChange({ ...mount, mode: next as MountMode, selected: null })}
+          />
         </div>
         <div className="form-group full">
           <div className="field-label-row">

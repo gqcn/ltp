@@ -15,7 +15,8 @@ body {
   width: 100%;
   min-height: 100%;
   height: auto;
-  overflow-x: hidden;
+  /* clip 不把 overflow-y 算成 auto，避免打断创建任务 Tab / 顶栏 sticky */
+  overflow-x: clip;
 }
 
 #root {

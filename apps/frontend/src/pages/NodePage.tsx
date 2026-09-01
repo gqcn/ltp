@@ -6,11 +6,13 @@ import {
   isolateNodes,
   listNodeEvents,
   listNodes,
+  previewNodeQuotaImpact,
   recoverNodes,
   updateNodeLabels,
   updateNodeTaints,
   type ClusterNode,
   type NodeEvent,
+  type NodeQuotaImpact,
   type NodeTaint,
 } from "@/api/node";
 import { ApiError } from "@/api/client";
@@ -19,6 +21,7 @@ import { CodeViewer } from "@/components/CodeEditor";
 import { ListBody, ListLoading } from "@/components/ListLoading";
 import { Modal } from "@/components/Modal";
 import { Pagination } from "@/components/Pagination";
+import { Select } from "@/components/Select";
 import { DcBadge, UsageCell } from "@/components/UsageCell";
 import { formatTime } from "@/lib/format";
 import { bytesToGi, milliToCores } from "@/lib/resources";
@@ -134,6 +137,11 @@ export function NodePage() {
   const labelsMerge = Boolean(editor && editor.kind === "labels" && editor.names.length > 1);
   const taintsMerge = Boolean(editor && editor.kind === "taints" && editor.names.length > 1);
   const enabledDcs = dcs;
+  const isolateImpactQuery = useQuery({
+    queryKey: ["node-quota-impact", clusterId, editor?.kind, editor?.names],
+    queryFn: () => previewNodeQuotaImpact({ clusterId: clusterId!, names: editor!.names }),
+    enabled: Boolean(clusterId && editor?.kind === "isolate" && editor.names.length),
+  });
 
   const mutate = useMutation({
     mutationFn: async () => {
@@ -277,29 +285,36 @@ export function NodePage() {
                   }}
                 />
               </div>
-              <select className="filter-select" value={dc} onChange={(e) => setDc(e.target.value)}>
-                <option value="all">全部数据中心</option>
-                <option value="unset">未分配</option>
-                {dcs.map((item) => (
-                  <option key={item.code} value={item.code}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-              <select className="filter-select" value={status} onChange={(e) => setStatus(e.target.value)}>
-                <option value="all">全部状态</option>
-                <option value="Ready">Ready</option>
-                <option value="NotReady">NotReady</option>
-                <option value="SchedulingDisabled">SchedulingDisabled</option>
-              </select>
-              <select className="filter-select" value={gpuType} onChange={(e) => setGpuType(e.target.value)}>
-                <option value="all">全部卡型号</option>
-                {gpuTypes.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              <Select
+                variant="filter"
+                aria-label="按数据中心筛选"
+                value={dc}
+                options={[
+                  { value: "all", label: "全部数据中心" },
+                  { value: "unset", label: "未分配" },
+                  ...dcs.map((item) => ({ value: item.code, label: item.name })),
+                ]}
+                onChange={setDc}
+              />
+              <Select
+                variant="filter"
+                aria-label="按状态筛选"
+                value={status}
+                options={[
+                  { value: "all", label: "全部状态" },
+                  { value: "Ready", label: "Ready" },
+                  { value: "NotReady", label: "NotReady" },
+                  { value: "SchedulingDisabled", label: "SchedulingDisabled" },
+                ]}
+                onChange={setStatus}
+              />
+              <Select
+                variant="filter"
+                aria-label="按卡型号筛选"
+                value={gpuType}
+                options={[{ value: "all", label: "全部卡型号" }, ...gpuTypes.map((t) => ({ value: t, label: t }))]}
+                onChange={setGpuType}
+              />
             </div>
             {selected.length ? (
               <div className="node-batch-bar">
@@ -369,7 +384,7 @@ export function NodePage() {
                               <div className="node-name-meta">{n.roles[0] || "worker"}</div>
                             </td>
                             <td>
-                              <DcBadge code={n.datacenter} name={dcMap[n.datacenter]?.name} shortName={dcMap[n.datacenter]?.shortName} color={dcMap[n.datacenter]?.color} />
+                              <DcBadge code={n.datacenter} name={n.datacenterName || dcMap[n.datacenter]?.name} shortName={n.datacenterShortName || dcMap[n.datacenter]?.shortName} color={n.datacenterColor || dcMap[n.datacenter]?.color} />
                             </td>
                             <td className="mono text-muted">{n.ip || "—"}</td>
                             <td className="td-node-usage">
@@ -561,25 +576,20 @@ export function NodePage() {
           <label htmlFor="node-dc-form-select">
             数据中心 <span className="req">*</span>
           </label>
-          <select
+          <Select
             id="node-dc-form-select"
-            className="filter-select"
-            style={{ width: "100%", maxWidth: "none" }}
             value={dcCode}
             aria-invalid={dcError ? true : undefined}
             aria-describedby={dcError ? "node-dc-form-select-error" : undefined}
-            onChange={(e) => {
-              setDcCode(e.target.value);
+            options={[
+              { value: "", label: "请选择数据中心" },
+              ...enabledDcs.map((item) => ({ value: item.code, label: `${item.name} · ${item.code}` })),
+            ]}
+            onChange={(next) => {
+              setDcCode(next);
               setDcError("");
             }}
-          >
-            <option value="">请选择数据中心</option>
-            {enabledDcs.map((item) => (
-              <option key={item.code} value={item.code}>
-                {item.name} · {item.code}
-              </option>
-            ))}
-          </select>
+          />
           <FieldError id="node-dc-form-select-error">{dcError}</FieldError>
         </div>
       </Modal>
@@ -745,21 +755,22 @@ export function NodePage() {
               clearFieldError(setTaintErrors, "node-taint-add-value");
             }}
           />
-          <select
+          <Select
             id="node-taint-add-effect"
-            className="filter-select"
+            variant="filter"
             aria-label="污点 effect"
             value={taintAdd.effect}
             {...invalidProps("node-taint-add-effect", taintErrors["node-taint-add-effect"])}
-            onChange={(e) => {
-              setTaintAdd({ ...taintAdd, effect: e.target.value });
+            options={[
+              { value: "NoSchedule", label: "NoSchedule" },
+              { value: "PreferNoSchedule", label: "PreferNoSchedule" },
+              { value: "NoExecute", label: "NoExecute" },
+            ]}
+            onChange={(next) => {
+              setTaintAdd({ ...taintAdd, effect: next });
               clearFieldError(setTaintErrors, "node-taint-add-effect");
             }}
-          >
-            <option value="NoSchedule">NoSchedule</option>
-            <option value="PreferNoSchedule">PreferNoSchedule</option>
-            <option value="NoExecute">NoExecute</option>
-          </select>
+          />
           <Button size="sm" variant="secondary" onClick={addTaintRow}>
             添加
           </Button>
@@ -786,13 +797,21 @@ export function NodePage() {
           setRemarkError("");
           mutate.mutate();
         }}
-        confirmDisabled={mutate.isPending}
+        confirmDisabled={mutate.isPending || (editor?.kind === "isolate" && isolateImpactQuery.isFetching)}
       >
         <p className="modal-maint-msg">
           <MaintMsg editor={editor} />
         </p>
         <p className="modal-maint-node mono">{maintNodeLine(editor, lookup)}</p>
         <p className={`modal-maint-hint ${editor?.kind === "recover" ? "is-success" : "is-danger"}`}>{maintHint(editor?.kind)}</p>
+        {editor?.kind === "isolate" ? (
+          <QuotaImpactHint
+            loading={isolateImpactQuery.isFetching}
+            failed={isolateImpactQuery.isError}
+            impact={isolateImpactQuery.data}
+            dcName={(code) => dcs.find((item) => item.code === code)?.name || code}
+          />
+        ) : null}
         <div className={remarkError ? "form-group is-invalid" : "form-group"}>
           <label htmlFor="modal-maint-remark">
             备注 <span className="text-muted" style={{ fontWeight: 400 }}>
@@ -894,7 +913,7 @@ export function NodePage() {
                     <div className="kv-item">
                       <span className="k">数据中心</span>
                       <span className="v" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                        <DcBadge code={detail.datacenter} name={dcMap[detail.datacenter]?.name} shortName={dcMap[detail.datacenter]?.shortName} color={dcMap[detail.datacenter]?.color} />
+                        <DcBadge code={detail.datacenter} name={detail.datacenterName || dcMap[detail.datacenter]?.name} shortName={detail.datacenterShortName || dcMap[detail.datacenter]?.shortName} color={detail.datacenterColor || dcMap[detail.datacenter]?.color} />
                         <Button size="sm" variant={detail.datacenter ? "ghost" : "secondary"} onClick={() => openEditor("dc", [detail.name], detail)}>
                           {detail.datacenter ? "修改" : "设置"}
                         </Button>
@@ -1420,6 +1439,66 @@ function maintHint(kind?: EditorKind) {
     return "入池前请确认节点已修复并完成验收。系统将 uncordon 并清除故障标记，节点重新参与 Volcano 调度。";
   }
   return "隔离会 cordon 节点并标记故障，之后不再承接新训练任务；运行中任务不会自动迁移，请按需停止或等待结束。";
+}
+
+function QuotaImpactHint({
+  loading,
+  failed,
+  impact,
+  dcName,
+}: {
+  loading: boolean;
+  failed: boolean;
+  impact?: NodeQuotaImpact;
+  dcName: (code: string) => string;
+}) {
+  if (loading) {
+    return <p className="modal-maint-quota is-muted">正在核算隔离对队列额度的影响…</p>;
+  }
+  if (failed) {
+    return <p className="modal-maint-quota is-warning">无法预估额度影响，仍可继续隔离。</p>;
+  }
+  if (!impact?.changed) {
+    return null;
+  }
+  const lines = quotaImpactLines(impact, dcName);
+  return (
+    <div className={`modal-maint-quota ${impact.overAllocated ? "is-danger" : "is-warning"}`} role="alert">
+      <p className="modal-maint-quota-title">
+        {impact.overAllocated ? "隔离后可调度容量将低于已划分给队列的额度" : "隔离后队列可调度额度将下降"}
+      </p>
+      <ul className="modal-maint-quota-list">
+        {lines.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function quotaImpactLines(impact: NodeQuotaImpact, dcName: (code: string) => string) {
+  const lines: string[] = [];
+  impact.datacenters.forEach((dc) => {
+    const name = dcName(dc.datacenterCode);
+    dc.gpuTypes.forEach((gpu) => {
+      lines.push(quotaChangeLine(`${name} · ${gpu.type}`, "GPU", gpu.current, gpu.after, gpu.allocated, "卡", gpu.after < gpu.allocated));
+    });
+    if (dc.cpuCurrent !== dc.cpuAfter) {
+      lines.push(quotaChangeLine(name, "CPU", dc.cpuCurrent, dc.cpuAfter, dc.cpuAllocated, "核", dc.cpuAfter < dc.cpuAllocated));
+    }
+    if (dc.memCurrentGi !== dc.memAfterGi) {
+      lines.push(quotaChangeLine(name, "内存", dc.memCurrentGi, dc.memAfterGi, dc.memAllocated, "Gi", dc.memAfterGi < dc.memAllocated));
+    }
+  });
+  return lines;
+}
+
+function quotaChangeLine(scope: string, resource: string, current: number, after: number, allocated: number, unit: string, over: boolean) {
+  const base = `${scope}：${resource} ${current} ${unit} → ${after} ${unit}，队列已划分 ${allocated} ${unit}`;
+  if (!over) {
+    return base;
+  }
+  return `${base}，隔离后将超额 ${allocated - after} ${unit}`;
 }
 
 function maintNodeLine(editor: Editor, lookup: (name: string) => ClusterNode | undefined) {

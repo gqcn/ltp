@@ -107,6 +107,14 @@ func (s *serviceImpl) listModel(ctx context.Context, in ListInput) *gdb.Model {
 	if code, ok := role.ParseCode(in.RoleCode); ok {
 		mod = mod.Where(do.SysUser{RoleCode: string(code)})
 	}
+	// 所属团队过滤必须在分页前完成，走成员表子查询避免先加载全量用户。
+	if in.TeamID > 0 {
+		memberCols := dao.SysTeamMember.Columns()
+		mod = mod.Where(
+			cols.Id+" IN (?)",
+			dao.SysTeamMember.Ctx(ctx).Fields(memberCols.UserId).Where(do.SysTeamMember{TeamId: in.TeamID}),
+		)
+	}
 	keyword := strings.TrimSpace(in.Keyword)
 	if keyword != "" {
 		pattern := "%" + keyword + "%"

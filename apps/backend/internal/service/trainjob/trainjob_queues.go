@@ -23,7 +23,7 @@ func (s *serviceImpl) ListMyQueues(ctx context.Context, actor Actor, clusterID i
 	if err != nil {
 		return nil, err
 	}
-	queues, err := s.queueSvc.ListInCluster(ctx, clusterID, teamIDs, actor.IsAdmin)
+	queues, err := s.queueSvc.ListInCluster(ctx, clusterID, teamIDs, actor.seesAllTeams())
 	if err != nil {
 		return nil, err
 	}
@@ -66,26 +66,29 @@ func (s *serviceImpl) ListMyQueues(ctx context.Context, actor Actor, clusterID i
 		}
 		monthHours := hoursByQueue[q.ID]
 		item := MyQueue{
-			ID:             q.ID,
-			Name:           q.Name,
-			DisplayName:    q.DisplayName,
-			DatacenterCode: q.DatacenterCode,
-			GPUType:        q.GPUType,
-			GPUQuota:       q.GPUQuota,
-			GPUUsed:        q.GPUUsed,
-			CPUQuota:       q.CPUQuota,
-			CPUUsed:        q.CPUUsed,
-			MemQuotaGi:     q.MemQuotaGi,
-			MemUsedGi:      q.MemUsedGi,
-			Features:       q.Features,
-			Enabled:        q.Enabled,
-			State:          q.State,
-			SyncError:      q.SyncError,
-			Teams:          teams,
-			GPUHoursMonth:  monthHours,
-			Running:        running,
-			Pending:        pending,
-			ActiveJobs:     jobs,
+			ID:                  q.ID,
+			Name:                q.Name,
+			DisplayName:         q.DisplayName,
+			DatacenterCode:      q.DatacenterCode,
+			DatacenterName:      q.DatacenterName,
+			DatacenterShortName: q.DatacenterShortName,
+			DatacenterColor:     q.DatacenterColor,
+			GPUType:             q.GPUType,
+			GPUQuota:            q.GPUQuota,
+			GPUUsed:             q.GPUUsed,
+			CPUQuota:            q.CPUQuota,
+			CPUUsed:             q.CPUUsed,
+			MemQuotaGi:          q.MemQuotaGi,
+			MemUsedGi:           q.MemUsedGi,
+			Features:            q.Features,
+			Enabled:             q.Enabled,
+			State:               q.State,
+			SyncError:           q.SyncError,
+			Teams:               teams,
+			GPUHoursMonth:       monthHours,
+			Running:             running,
+			Pending:             pending,
+			ActiveJobs:          jobs,
 		}
 		out.List = append(out.List, item)
 		out.Summary.GPUQuota += q.GPUQuota

@@ -33,6 +33,7 @@ func (c *ControllerV1) CreateJob(ctx context.Context, req *v1.CreateJobReq) (*v1
 		Mounts:       fromMounts(req.Mounts),
 		RunUserID:    req.RunUserId,
 		RerunFromID:  req.RerunFromId,
+		ProjectID:    req.ProjectId,
 	})
 	if err != nil {
 		return nil, err

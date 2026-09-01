@@ -6,12 +6,13 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ListReq 查询分页平台用户列表。
 type ListReq struct {
-	g.Meta   `path:"/users" method:"get" tags:"User" summary:"列出平台用户" dc:"按关键词、角色和启用状态分页查询从 LDAP 加入的平台用户。筛选、排序与分页在返回当前页之前于数据库侧完成。角色名称与所属团队批量装配。本地管理员不出现在列表中。" permission:"platform:user:query"`
+	g.Meta   `path:"/users" method:"get" tags:"User" summary:"列出平台用户" dc:"按关键词、角色、启用状态和所属团队分页查询从 LDAP 加入的平台用户。筛选、排序与分页在返回当前页之前于数据库侧完成。角色名称与所属团队批量装配。本地管理员不出现在列表中。" permission:"platform:user:query"`
 	PageNum  int    `json:"pageNum" d:"1" v:"min:1" dc:"页码，从 1 开始。省略时默认为 1。" eg:"1"`
 	PageSize int    `json:"pageSize" d:"10" v:"min:1|max:100" dc:"每页条数。默认 10，最大 100。" eg:"10"`
 	Keyword  string `json:"keyword" dc:"可选模糊匹配姓名、账号、邮箱或部门。空表示不按关键词过滤。" eg:"郭"`
 	RoleCode string `json:"roleCode" dc:"可选角色编码过滤。省略或空表示全部。取值 algo 或 sre。" eg:"algo"`
 	Enabled  *bool  `json:"enabled" dc:"可选启用状态过滤。省略返回全部，true 为启用，false 为停用。" eg:"true"`
+	TeamId   int64  `json:"teamId" dc:"可选团队 ID。省略或 0 表示全部；大于 0 只返回该团队成员。一人多团队时命中所选团队即可。" eg:"1"`
 }
 
 // TeamRef 是用户所属团队的最小投影。

@@ -134,6 +134,47 @@ type PodSnapshot struct {
 	Role     string // Master / Worker
 }
 
+// AgentSpec 是实验代理 Job 或 Pod 的声明。
+type AgentSpec struct {
+	Namespace  string            // 命名空间
+	Name       string            // 对象名
+	RunID      int64             // 实验 Run ID
+	Role       string            // metrics 或 serve
+	Datacenter string            // 机房节点选择器
+	Image      string            // 镜像
+	Command    []string          // 命令
+	Args       []string          // 参数
+	Env        map[string]string // 环境变量
+}
+
+// AgentWorkload 是实验代理对象投影。
+type AgentWorkload struct {
+	Name   string            // 对象名
+	Phase  string            // Job 或 Pod 相位
+	Ready  bool              // Pod Ready
+	Node   string            // 所在节点
+	Labels map[string]string // 标签
+}
+
+// PodProxyInput 是 Pod 端口反代请求。
+type PodProxyInput struct {
+	Namespace string            // 命名空间
+	Pod       string            // Pod 名
+	Port      int32             // 容器端口
+	Method    string            // HTTP 方法
+	Path      string            // 路径，不含查询
+	RawQuery  string            // 原始查询串
+	Header    map[string]string // 需转发的请求头
+	Body      []byte            // 请求体
+}
+
+// PodProxyResult 是反代响应。
+type PodProxyResult struct {
+	Status int               // HTTP 状态码
+	Header map[string]string // 响应头
+	Body   []byte            // 响应体
+}
+
 // NodePatch 描述一次节点变更。
 type NodePatch struct {
 	Labels        map[string]string // 合并写入；值为空表示删除键
@@ -179,6 +220,24 @@ type ClusterClient interface {
 	ListJobPods(ctx context.Context, namespace, jobName string) ([]PodSnapshot, error)
 	// GetPodLogs 返回容器最近日志；pod 不存在时返回 CodePodNotFound。
 	GetPodLogs(ctx context.Context, namespace, podName string, tailLines int64) (string, error)
+	// ApplyAgentJob 创建或替换实验读盘 Job。
+	ApplyAgentJob(ctx context.Context, spec AgentSpec) error
+	// ApplyAgentPod 创建或替换实验看板 Pod。
+	ApplyAgentPod(ctx context.Context, spec AgentSpec) error
+	// ApplyAgentService 创建或更新实验看板 Service。
+	ApplyAgentService(ctx context.Context, namespace, name string, labels map[string]string, port int32) error
+	// ListAgentJobs 按标签列出普通 Job。
+	ListAgentJobs(ctx context.Context, namespace, selector string) ([]AgentWorkload, error)
+	// ListAgentPods 按标签列出 Pod。
+	ListAgentPods(ctx context.Context, namespace, selector string) ([]AgentWorkload, error)
+	// DeleteAgentJob 删除普通 Job；不存在视为成功。
+	DeleteAgentJob(ctx context.Context, namespace, name string) error
+	// DeleteAgentPod 删除 Pod；不存在视为成功。
+	DeleteAgentPod(ctx context.Context, namespace, name string) error
+	// DeleteAgentService 删除 Service；不存在视为成功。
+	DeleteAgentService(ctx context.Context, namespace, name string) error
+	// ProxyPod 经 API Server 反代 Pod 端口，返回状态码、响应头与正文。
+	ProxyPod(ctx context.Context, in PodProxyInput) (*PodProxyResult, error)
 }
 
 // Factory 根据 Kubeconfig 构造集群客户端。

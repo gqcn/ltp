@@ -19,7 +19,8 @@ test("TC010 job detail matches prototype layout", async ({ page }) => {
   await expect(page.locator(".job-detail-title")).toHaveText(jobName);
   await expect(page.locator(".breadcrumb .current")).toHaveText(jobName);
   await expect(page.locator(".job-detail-heading")).not.toContainText(String(jobId));
-  await expect(page.locator(".job-cfg-fact .dc-badge")).toHaveText("cq-lj");
+  await expect(page.locator(".job-cfg-fact .dc-badge")).toHaveText("两江");
+  await expect(page.locator(".job-cfg-fact .dc-badge")).not.toHaveText("cq-lj");
   await expect(page.locator(".job-cfg-cmd")).toHaveAttribute("data-code-surface", "viewer");
   await expect(page.locator(".job-cfg-cmd")).toHaveAttribute("data-lang", "shell");
   await expect(page.locator(".job-cfg-cmd .cm-editor")).toBeVisible();
@@ -70,6 +71,9 @@ async function stubJobDetail(page: Page) {
     queueName: "lab-default",
     queueDisplayName: "SLM · 疆算 H100",
     datacenterCode: "cq-lj",
+    datacenterName: "重庆两江",
+    datacenterShortName: "两江",
+    datacenterColor: "#3b82f6",
     gpuType: "H100-80G",
     requireIb: true,
     nodes: 32,

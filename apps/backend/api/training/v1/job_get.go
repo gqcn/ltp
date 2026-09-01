@@ -31,10 +31,11 @@ type GetJobReq struct {
 // GetJobRes 是任务详情。
 type GetJobRes struct {
 	JobListItem
-	Namespace string          `json:"namespace" dc:"Kubernetes 命名空间" eg:"maip"`
-	Image     string          `json:"image" dc:"容器镜像" eg:"harbor.msxf.com/ai/megatron:24.07"`
-	Command   string          `json:"command" dc:"启动命令" eg:"torchrun train.py"`
-	Workdir   string          `json:"workdir" dc:"工作路径" eg:"/data/hpc/home/guoqiang"`
-	Env       []EnvEntry      `json:"env" dc:"用户环境变量"`
-	Mounts    []MountSnapshot `json:"mounts" dc:"配置挂载快照，含文件内容"`
+	Namespace      string          `json:"namespace" dc:"Kubernetes 命名空间" eg:"maip"`
+	Image          string          `json:"image" dc:"容器镜像" eg:"harbor.msxf.com/ai/megatron:24.07"`
+	Command        string          `json:"command" dc:"启动命令" eg:"torchrun train.py"`
+	Workdir        string          `json:"workdir" dc:"工作路径" eg:"/data/hpc/home/guoqiang"`
+	Env            []EnvEntry      `json:"env" dc:"用户环境变量"`
+	Mounts         []MountSnapshot `json:"mounts" dc:"配置挂载快照，含文件内容"`
+	ExperimentName string          `json:"experimentName" dc:"关联实验名称。无关联为空。" eg:"slm-7b-pretrain-phase4"`
 }

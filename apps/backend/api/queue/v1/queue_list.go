@@ -24,31 +24,34 @@ type ListReq struct {
 
 // ListItem 是列表中的一条队列。
 type ListItem struct {
-	Id             int64     `json:"id" dc:"队列 ID" eg:"1"`
-	ClusterId      int64     `json:"clusterId" dc:"所属集群 ID" eg:"1"`
-	Name           string    `json:"name" dc:"Volcano Queue 对象名" eg:"lab-default"`
-	DisplayName    string    `json:"displayName" dc:"显示名称" eg:"实验默认队列"`
-	Description    string    `json:"description" dc:"说明" eg:"kind 验收队列"`
-	DatacenterCode string    `json:"datacenterCode" dc:"数据中心标识" eg:"cq-lj"`
-	GpuType        string    `json:"gpuType" dc:"卡型号" eg:"NVIDIA-H200"`
-	GpuQuota       int       `json:"gpuQuota" dc:"GPU 额度（卡）" eg:"8"`
-	GpuUsed        int       `json:"gpuUsed" dc:"GPU 已用（卡），来自 Volcano allocated" eg:"0"`
-	CpuQuota       int       `json:"cpuQuota" dc:"CPU 额度（核）" eg:"32"`
-	CpuUsed        int       `json:"cpuUsed" dc:"CPU 已用（核）" eg:"0"`
-	MemQuotaGi     int       `json:"memQuotaGi" dc:"内存额度（GiB）" eg:"64"`
-	MemUsedGi      int       `json:"memUsedGi" dc:"内存已用（GiB）" eg:"0"`
-	Weight         int       `json:"weight" dc:"Volcano 权重" eg:"1"`
-	Reclaimable    bool      `json:"reclaimable" dc:"是否允许回收" eg:"true"`
-	Features       []string  `json:"features" dc:"功能特性，如 ib" eg:"[]"`
-	Enabled        bool      `json:"enabled" dc:"是否启用（对应 Volcano Open/Closed）" eg:"true"`
-	GpuHoursMonth  float64   `json:"gpuHoursMonth" dc:"本月卡时。按 GPU 数 × 运行时长计算，排队中不计；无任务为 0。" eg:"12.5"`
-	State          string    `json:"state" dc:"Volcano 状态。Open / Closed / Unknown。" eg:"Open"`
-	Pending        int       `json:"pending" dc:"排队中的 PodGroup 数" eg:"0"`
-	Running        int       `json:"running" dc:"运行中的 PodGroup 数" eg:"0"`
-	SyncError      string    `json:"syncError" dc:"与 Volcano 同步失败时的说明。正常为空字符串。" eg:""`
-	Teams          []TeamRef `json:"teams" dc:"关联团队"`
-	CreatedAt      int64     `json:"createdAt" dc:"创建时间，Unix 毫秒时间戳" eg:"1754000000000"`
-	UpdatedAt      int64     `json:"updatedAt" dc:"更新时间，Unix 毫秒时间戳" eg:"1754000000000"`
+	Id                  int64     `json:"id" dc:"队列 ID" eg:"1"`
+	ClusterId           int64     `json:"clusterId" dc:"所属集群 ID" eg:"1"`
+	Name                string    `json:"name" dc:"Volcano Queue 对象名" eg:"lab-default"`
+	DisplayName         string    `json:"displayName" dc:"显示名称" eg:"实验默认队列"`
+	Description         string    `json:"description" dc:"说明" eg:"kind 验收队列"`
+	DatacenterCode      string    `json:"datacenterCode" dc:"数据中心标识" eg:"cq-lj"`
+	DatacenterName      string    `json:"datacenterName" dc:"数据中心显示名称。未登记时为空。" eg:"重庆两江"`
+	DatacenterShortName string    `json:"datacenterShortName" dc:"数据中心简称。未登记时为空。" eg:"两江"`
+	DatacenterColor     string    `json:"datacenterColor" dc:"数据中心展示色。未登记时为空。" eg:"#3b82f6"`
+	GpuType             string    `json:"gpuType" dc:"卡型号" eg:"NVIDIA-H200"`
+	GpuQuota            int       `json:"gpuQuota" dc:"GPU 额度（卡）" eg:"8"`
+	GpuUsed             int       `json:"gpuUsed" dc:"GPU 已用（卡），来自 Volcano allocated" eg:"0"`
+	CpuQuota            int       `json:"cpuQuota" dc:"CPU 额度（核）" eg:"32"`
+	CpuUsed             int       `json:"cpuUsed" dc:"CPU 已用（核）" eg:"0"`
+	MemQuotaGi          int       `json:"memQuotaGi" dc:"内存额度（GiB）" eg:"64"`
+	MemUsedGi           int       `json:"memUsedGi" dc:"内存已用（GiB）" eg:"0"`
+	Weight              int       `json:"weight" dc:"Volcano 权重" eg:"1"`
+	Reclaimable         bool      `json:"reclaimable" dc:"是否允许回收" eg:"true"`
+	Features            []string  `json:"features" dc:"功能特性，如 ib" eg:"[]"`
+	Enabled             bool      `json:"enabled" dc:"是否启用（对应 Volcano Open/Closed）" eg:"true"`
+	GpuHoursMonth       float64   `json:"gpuHoursMonth" dc:"本月卡时。按 GPU 数 × 运行时长计算，排队中不计；无任务为 0。" eg:"12.5"`
+	State               string    `json:"state" dc:"Volcano 状态。Open / Closed / Unknown。" eg:"Open"`
+	Pending             int       `json:"pending" dc:"排队中的 PodGroup 数" eg:"0"`
+	Running             int       `json:"running" dc:"运行中的 PodGroup 数" eg:"0"`
+	SyncError           string    `json:"syncError" dc:"与 Volcano 同步失败时的说明。正常为空字符串。" eg:""`
+	Teams               []TeamRef `json:"teams" dc:"关联团队。无绑定时为空数组。"`
+	CreatedAt           int64     `json:"createdAt" dc:"创建时间，Unix 毫秒时间戳" eg:"1754000000000"`
+	UpdatedAt           int64     `json:"updatedAt" dc:"更新时间，Unix 毫秒时间戳" eg:"1754000000000"`
 }
 
 // ListRes 是分页队列列表。

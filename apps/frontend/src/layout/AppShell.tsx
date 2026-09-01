@@ -6,6 +6,7 @@ import { getAlertSummary } from "@/api/alert";
 import type { Cluster } from "@/api/cluster";
 import { getJob } from "@/api/training";
 import { Modal } from "@/components/Modal";
+import { Select } from "@/components/Select";
 import { canVisit, MENU_OPS, MENU_PLATFORM, MENU_TRAINING } from "@/lib/access";
 import { applySidebarCollapsed, readSidebarCollapsed, toggleTheme, readTheme } from "@/lib/theme";
 import { adminShellMeta } from "@/lib/format";
@@ -33,6 +34,8 @@ const breadcrumbs: Record<string, { current: string; suffix?: string; parent?: {
   "/training/queues": { current: "我的队列" },
   "/training/configs": { current: "配置管理" },
   "/training/configs/new": { current: "新建配置集", parent: { label: "配置管理", to: "/training/configs" } },
+  "/training/experiments": { current: "实验分析" },
+  "/training/experiments/compare": { current: "实验对比", parent: { label: "实验分析", to: "/training/experiments" } },
 };
 
 const workspaceClusterPages = new Set([
@@ -42,6 +45,8 @@ const workspaceClusterPages = new Set([
   "/training/jobs",
   "/training/jobs/new",
   "/training/queues",
+  "/training/experiments",
+  "/training/experiments/compare",
 ]);
 
 export function AppShell({ user }: Props) {
@@ -52,6 +57,7 @@ export function AppShell({ user }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [, setTheme] = useState(readTheme);
   const [pendingCluster, setPendingCluster] = useState<Cluster | null>(null);
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   const logoutMutation = useMutation({
     mutationFn: logout,
@@ -91,12 +97,14 @@ export function AppShell({ user }: Props) {
             ? { current: "发布新版本", parent: { label: "配置管理", to: "/training/configs" } }
             : /^\/training\/configs\/\d+$/.test(location.pathname)
               ? { current: "配置集", parent: { label: "配置管理", to: "/training/configs" } }
-              : { current: "控制台" });
+              : /^\/training\/experiments\/\d+$/.test(location.pathname)
+                ? { current: "实验详情", parent: { label: "实验分析", to: "/training/experiments" } }
+                : { current: "控制台" });
   const fillViewport = location.pathname === "/platform/system";
   const clusterSource = location.pathname.startsWith("/training") ? "training" : "ops";
   const { clusters, clusterId, current: workingCluster, select } = useWorkingCluster(clusterSource);
   const onTrainingWorkspace =
-    location.pathname.startsWith("/training/jobs") || location.pathname === "/training/queues";
+    location.pathname.startsWith("/training/jobs") || location.pathname.startsWith("/training/experiments") || location.pathname === "/training/queues";
   const showClusterSelect = clusters.length > 0 && (workspaceClusterPages.has(location.pathname) || onTrainingWorkspace);
   const alertSummary = useQuery({
     queryKey: ["alert-summary"],
@@ -149,6 +157,13 @@ export function AppShell({ user }: Props) {
                   <path d="M8 13h8M8 17h5" />
                 </svg>
                 <span className="nav-item-label">配置管理</span>
+              </NavLink>
+              <NavLink to="/training/experiments" className={({ isActive }) => (isActive || location.pathname.startsWith("/training/experiments/") ? "nav-item active" : "nav-item")}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 19V5M4 19h16" />
+                  <path d="M8 16l3-5 3 3 5-8" />
+                </svg>
+                <span className="nav-item-label">实验分析</span>
               </NavLink>
             </div>
           ) : null}
@@ -278,7 +293,10 @@ export function AppShell({ user }: Props) {
                 className="sidebar-user-menu-item is-danger"
                 data-testid="logout-button"
                 role="menuitem"
-                onClick={() => logoutMutation.mutate()}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setLogoutOpen(true);
+                }}
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -335,22 +353,18 @@ export function AppShell({ user }: Props) {
                 <span className="cluster-select-label">工作集群</span>
                 <div className="cluster-select">
                   <span className={`dot ${statusDot(workingCluster?.status || "")}`} title={workingCluster?.status ? `集群状态：${workingCluster.status}` : "集群状态"} />
-                  <select
+                  <Select
+                    variant="compact"
                     aria-label="工作集群"
-                    value={clusterId ?? ""}
-                    onChange={(event) => {
-                      const next = clusters.find((item) => item.id === Number(event.target.value));
-                      if (next && next.id !== clusterId) {
-                        setPendingCluster(next);
+                    value={clusterId ? String(clusterId) : ""}
+                    options={clusters.map((item) => ({ value: String(item.id), label: item.displayName }))}
+                    onChange={(next) => {
+                      const picked = clusters.find((item) => item.id === Number(next));
+                      if (picked && picked.id !== clusterId) {
+                        setPendingCluster(picked);
                       }
                     }}
-                  >
-                    {clusters.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.displayName}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
             </div>
@@ -386,6 +400,25 @@ export function AppShell({ user }: Props) {
           </ul>
         </div>
         <p className="modal-hint">平台中心、「集群管理」与「数据中心管理」不受工作集群影响。</p>
+      </Modal>
+      <Modal
+        open={logoutOpen}
+        title="确认退出登录"
+        confirmText="确认退出"
+        confirmVariant="danger"
+        modalClassName="modal-confirm"
+        confirmDisabled={logoutMutation.isPending}
+        onClose={() => setLogoutOpen(false)}
+        onConfirm={() => {
+          setLogoutOpen(false);
+          logoutMutation.mutate();
+        }}
+      >
+        <p className="modal-msg">
+          确定要退出当前账号 <strong>{shellUser.displayName}</strong> 吗？
+        </p>
+        <p className="modal-meta">{shellUser.menuSub}</p>
+        <p className="modal-hint is-warning">退出后需重新登录才能使用训练平台。未保存的页面状态将丢失。</p>
       </Modal>
     </div>
   );

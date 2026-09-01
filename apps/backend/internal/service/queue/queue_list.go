@@ -113,7 +113,7 @@ func (s *serviceImpl) CountQueuesByDatacenter(ctx context.Context, codes []strin
 
 const maxInCluster = 200
 
-// ListInCluster 按集群返回完整队列投影。
+// ListInCluster 按集群返回可供训练使用的队列投影；未绑定团队的队列不包含在内。
 func (s *serviceImpl) ListInCluster(ctx context.Context, clusterID int64, teamIDs []int64, allTeams bool) ([]*Item, error) {
 	if clusterID <= 0 {
 		return []*Item{}, nil
@@ -149,7 +149,20 @@ func (s *serviceImpl) ListInCluster(ctx context.Context, clusterID int64, teamID
 	if err := mod.OrderDesc(dao.OpsQueue.Columns().Id).Limit(maxInCluster).Scan(&rows); err != nil {
 		return nil, gerror.Wrap(err, "list queues in cluster")
 	}
-	return s.projectItems(ctx, rows)
+	items, err := s.projectItems(ctx, rows)
+	if err != nil {
+		return nil, err
+	}
+	if !allTeams {
+		return items, nil
+	}
+	out := make([]*Item, 0, len(items))
+	for _, item := range items {
+		if item != nil && len(item.Teams) > 0 {
+			out = append(out, item)
+		}
+	}
+	return out, nil
 }
 
 // ListByTeamIDs 按团队批量返回关联队列。
@@ -199,15 +212,72 @@ func (s *serviceImpl) ListByTeamIDs(ctx context.Context, teamIDs []int64) (map[i
 			continue
 		}
 		out[link.TeamID] = append(out[link.TeamID], team.QueueRef{
-			ID:             item.ID,
-			Name:           item.Name,
-			DisplayName:    item.DisplayName,
-			DatacenterCode: item.DatacenterCode,
-			Enabled:        item.Enabled,
-			State:          item.State,
+			ID:                  item.ID,
+			Name:                item.Name,
+			DisplayName:         item.DisplayName,
+			DatacenterCode:      item.DatacenterCode,
+			DatacenterName:      item.DatacenterName,
+			DatacenterShortName: item.DatacenterShortName,
+			DatacenterColor:     item.DatacenterColor,
+			GPUType:             item.GPUType,
+			Enabled:             item.Enabled,
+			State:               item.State,
 		})
 	}
 	return out, nil
+}
+
+// ListBindOptions 分页返回可供团队绑定的队列，不按集群过滤。
+func (s *serviceImpl) ListBindOptions(ctx context.Context, keyword string, pageNum, pageSize int) ([]team.QueueOption, int, error) {
+	pageNum, pageSize = normalizePage(pageNum, pageSize)
+	mod := s.bindOptionsModel(ctx, keyword)
+	total, err := mod.Count()
+	if err != nil {
+		return nil, 0, gerror.Wrap(err, "count queue bind options")
+	}
+	var rows []*entity.OpsQueue
+	if err := s.bindOptionsModel(ctx, keyword).
+		OrderDesc(dao.OpsQueue.Columns().Id).
+		Page(pageNum, pageSize).
+		Scan(&rows); err != nil {
+		return nil, 0, gerror.Wrap(err, "list queue bind options")
+	}
+	items, err := s.projectItems(ctx, rows)
+	if err != nil {
+		return nil, 0, err
+	}
+	out := make([]team.QueueOption, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		out = append(out, team.QueueOption{
+			ID:                  item.ID,
+			Name:                item.Name,
+			DisplayName:         item.DisplayName,
+			DatacenterCode:      item.DatacenterCode,
+			DatacenterName:      item.DatacenterName,
+			DatacenterShortName: item.DatacenterShortName,
+			DatacenterColor:     item.DatacenterColor,
+			GPUType:             item.GPUType,
+			GPUQuota:            item.GPUQuota,
+			GPUUsed:             item.GPUUsed,
+			Enabled:             item.Enabled,
+			State:               item.State,
+		})
+	}
+	return out, total, nil
+}
+
+func (s *serviceImpl) bindOptionsModel(ctx context.Context, keyword string) *gdb.Model {
+	cols := dao.OpsQueue.Columns()
+	mod := dao.OpsQueue.Ctx(ctx)
+	keyword = strings.TrimSpace(keyword)
+	if keyword == "" {
+		return mod
+	}
+	pattern := "%" + keyword + "%"
+	return mod.Where(mod.Builder().WhereLike(cols.Name, pattern).WhereOrLike(cols.DisplayName, pattern))
 }
 
 func (s *serviceImpl) listModel(ctx context.Context, in ListInput) *gdb.Model {
@@ -279,7 +349,37 @@ func (s *serviceImpl) projectItems(ctx context.Context, rows []*entity.OpsQueue)
 		s.refreshVolcano(ctx, item)
 		items = append(items, item)
 	}
+	if err := s.attachDatacenterNames(ctx, items); err != nil {
+		return nil, err
+	}
 	return items, nil
+}
+
+// attachDatacenterNames 按当前页标识批量写入数据中心名称。
+func (s *serviceImpl) attachDatacenterNames(ctx context.Context, items []*Item) error {
+	codes := make([]string, 0, len(items))
+	for _, item := range items {
+		if item != nil {
+			codes = append(codes, item.DatacenterCode)
+		}
+	}
+	refs, err := s.dcSvc.MapByCodes(ctx, codes)
+	if err != nil {
+		return err
+	}
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		ref, ok := refs[item.DatacenterCode]
+		if !ok {
+			continue
+		}
+		item.DatacenterName = ref.Name
+		item.DatacenterShortName = ref.ShortName
+		item.DatacenterColor = ref.Color
+	}
+	return nil
 }
 
 func (s *serviceImpl) refreshVolcano(ctx context.Context, item *Item) {

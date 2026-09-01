@@ -143,7 +143,7 @@ func (s *serviceImpl) Snapshot(ctx context.Context, setID int64, version int) (*
 func (s *serviceImpl) listModel(ctx context.Context, in ListInput) (*gdb.Model, error) {
 	cols := dao.TrainConfigSet.Columns()
 	mod := dao.TrainConfigSet.Ctx(ctx)
-	if !in.Actor.IsAdmin {
+	if !in.Actor.seesAllTeams() {
 		teamIDs, err := s.teamSvc.ListIDsByUserID(ctx, in.Actor.UserID)
 		if err != nil {
 			return nil, err

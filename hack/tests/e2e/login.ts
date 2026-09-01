@@ -17,3 +17,13 @@ export async function loginAsLdap(page: Page, username: string, password: string
   await page.locator("#login-password").fill(password);
   await page.getByRole("button", { name: "LDAP 登录" }).click();
 }
+
+export async function confirmLogout(page: Page) {
+  await page.getByRole("button", { name: "确认退出" }).click();
+}
+
+export async function logoutFromShell(page: Page) {
+  await page.getByRole("button", { name: "账户菜单" }).click();
+  await page.getByTestId("logout-button").click();
+  await confirmLogout(page);
+}

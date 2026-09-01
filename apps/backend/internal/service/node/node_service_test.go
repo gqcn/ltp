@@ -58,7 +58,7 @@ func TestListIncludesLatestIsolateRemark(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err := New(clusterSvc, dcSvc)
+	svc, err := New(clusterSvc, dcSvc, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -39,7 +39,13 @@ test("TC006 admin run-user picker locks on select and prefills on rerun", async 
   await expect(page.locator(".user-picker-chip")).toContainText(nickname);
   await expect(page.locator(".user-picker-chip")).toContainText(username);
   await expect(dropdown).toHaveCount(0);
-  await expect(page.locator("#create-run-user-hint")).toBeVisible();
+  await expect(page.getByText("须指定一名平台 LDAP 用户作为运行身份")).toHaveCount(0);
+  await expect(page.locator("#create-run-user-hint")).toHaveCount(0);
+  const runUserHelp = page.getByRole("button", { name: "运行用户说明" });
+  await runUserHelp.hover();
+  const tip = page.locator(".field-help-floating-tip.is-visible");
+  await expect(tip).toBeVisible({ timeout: 400 });
+  await expect(tip).toContainText("本地 admin 不在 LDAP");
   await expect(workdir).toHaveValue(`/data/hpc/home/${username}`);
   await page.screenshot({ path: path.join(shotDir, "220010-tc006-run-user-selected.png") });
 

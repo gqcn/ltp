@@ -29,7 +29,10 @@ import (
 	authsvc "github.com/gqcn/ltp/internal/service/auth"
 	"github.com/gqcn/ltp/internal/service/bizctx"
 	clustersvc "github.com/gqcn/ltp/internal/service/cluster"
+	cronsvc "github.com/gqcn/ltp/internal/service/cron"
 	dcsvc "github.com/gqcn/ltp/internal/service/datacenter"
+	expprojectsvc "github.com/gqcn/ltp/internal/service/expproject"
+	exprunsvc "github.com/gqcn/ltp/internal/service/exprun"
 	"github.com/gqcn/ltp/internal/service/kube"
 	ldapsvc "github.com/gqcn/ltp/internal/service/ldap"
 	"github.com/gqcn/ltp/internal/service/middleware"
@@ -89,7 +92,7 @@ func httpFunc(ctx context.Context, _ *gcmd.Parser) error {
 	if err != nil {
 		return err
 	}
-	nodeSvc, err := nodesvc.New(clusterSvc, dcSvc)
+	nodeSvc, err := nodesvc.New(clusterSvc, dcSvc, queueSvc)
 	if err != nil {
 		return err
 	}
@@ -101,8 +104,29 @@ func httpFunc(ctx context.Context, _ *gcmd.Parser) error {
 	if err != nil {
 		return err
 	}
-	jobSvc, err := trainjobsvc.New(clusterSvc, queueSvc, teamSvc, userSvc, cfgSvc, alertSvc)
+	jobSvc, err := trainjobsvc.New(clusterSvc, queueSvc, dcSvc, teamSvc, userSvc, cfgSvc, alertSvc)
 	if err != nil {
+		return err
+	}
+	projectSvc, err := expprojectsvc.New(teamSvc)
+	if err != nil {
+		return err
+	}
+	agentImage := g.Cfg().MustGet(ctx, "experiment.agentImage", consts.AgentImageDefault).String()
+	if agentImage == "" {
+		agentImage = consts.AgentImageDefault
+	}
+	idleAfter := g.Cfg().MustGet(ctx, "experiment.idleAfter", "20m").Duration()
+	runSvc, err := exprunsvc.New(clusterSvc, teamSvc, projectSvc, jobSvc, exprunsvc.Config{AgentImage: agentImage, IdleAfter: idleAfter})
+	if err != nil {
+		return err
+	}
+	jobSvc.BindRunLinker(runSvc)
+	cronSvc, err := cronsvc.New(runSvc)
+	if err != nil {
+		return err
+	}
+	if err := cronSvc.Start(ctx); err != nil {
 		return err
 	}
 	usageHub.Replace(dcsvc.NewLiveUsage(clusterSvc, queueSvc))
@@ -125,7 +149,7 @@ func httpFunc(ctx context.Context, _ *gcmd.Parser) error {
 		nodeCtrl     = node.NewV1(nodeSvc, bizCtxSvc)
 		queueCtrl    = queue.NewV1(queueSvc, jobSvc)
 		alertCtrl    = alert.NewV1(alertSvc, bizCtxSvc)
-		trainingCtrl = training.NewV1(jobSvc, cfgSvc, clusterSvc, teamSvc, userSvc, bizCtxSvc)
+		trainingCtrl = training.NewController(jobSvc, cfgSvc, projectSvc, runSvc, clusterSvc, teamSvc, userSvc, bizCtxSvc)
 		webhookCtrl  = webhook.NewV1(alertSvc)
 		s            = g.Server()
 	)
@@ -135,6 +159,7 @@ func httpFunc(ctx context.Context, _ *gcmd.Parser) error {
 		group.Group("/", func(protected *ghttp.RouterGroup) {
 			protected.Middleware(mwSvc.Auth, mwSvc.Permission)
 			protected.Bind(dcCtrl, userCtrl, roleCtrl, teamCtrl, systemCtrl, clusterCtrl, nodeCtrl, queueCtrl, alertCtrl, trainingCtrl)
+			protected.ALL("/training/experiments/{id}/board/{*path}", trainingCtrl.ProxyBoard)
 		})
 	})
 	enhanceOpenAPIDoc(s)

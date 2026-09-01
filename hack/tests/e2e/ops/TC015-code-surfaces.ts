@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsAdmin } from "../login";
+import { ensureWorkingClusterByText } from "../select";
 
 const shotDir = path.resolve(process.cwd(), "../../temp/20260828");
 
@@ -43,18 +44,7 @@ test("TC015 cluster kubeconfig editor and alert JSON viewer use shared code surf
 
   await page.getByRole("link", { name: "节点管理" }).click();
   await expect(page.getByRole("heading", { name: "节点管理" })).toBeVisible();
-  const clusterSelect = page.getByLabel("工作集群");
-  if (await clusterSelect.count()) {
-    const values = await clusterSelect.locator("option").evaluateAll((els) =>
-      els.map((el) => ({ value: (el as HTMLOptionElement).value, text: el.textContent || "" })),
-    );
-    const kind = values.find((item) => item.text.includes("kind-ltp")) ?? values.find((item) => item.value && item.value !== "0");
-    if (kind && (await clusterSelect.inputValue()) !== kind.value) {
-      await clusterSelect.selectOption(kind.value);
-      const confirm = page.getByRole("button", { name: "确认切换并刷新" });
-      if (await confirm.isVisible().catch(() => false)) await confirm.click();
-    }
-  }
+  await ensureWorkingClusterByText(page, "kind-ltp");
   const nodeLink = page.locator(".node-name-link").first();
   await expect(nodeLink).toBeVisible({ timeout: 8000 });
   await nodeLink.click();

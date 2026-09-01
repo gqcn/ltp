@@ -27,6 +27,11 @@ type Fake struct {
 	ConfigMapOwners map[string][]OwnerRef        // ConfigMap 属主，key 同 ConfigMaps
 	Pods            map[string][]PodSnapshot     // Job Pod，key 为 namespace/job
 	Logs            map[string]string            // 容器日志，key 为 namespace/pod
+	AgentJobs       map[string]AgentWorkload     // 实验 Job，key 为 namespace/name
+	AgentPods       map[string]AgentWorkload     // 实验 Pod，key 为 namespace/name
+	AgentServices   map[string]map[string]string // 实验 Service 标签，key 为 namespace/name
+	ProxyStatus     int                          // 反代状态码
+	ProxyBody       []byte                       // 反代正文
 	ListNodesCalls  int                          // ListNodes 调用次数
 }
 
@@ -357,4 +362,143 @@ func (f *Fake) GetPodLogs(ctx context.Context, namespace, podName string, tailLi
 		return text, nil
 	}
 	return "", bizerr.New(CodePodNotFound)
+}
+
+// ApplyAgentJob 写入内存 Job。
+func (f *Fake) ApplyAgentJob(ctx context.Context, spec AgentSpec) error {
+	_ = ctx
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.AgentJobs == nil {
+		f.AgentJobs = map[string]AgentWorkload{}
+	}
+	f.AgentJobs[namespaceKey(spec.Namespace, spec.Name)] = AgentWorkload{
+		Name:   spec.Name,
+		Phase:  "Active",
+		Labels: map[string]string{"maip.io/role": spec.Role},
+	}
+	return nil
+}
+
+// ApplyAgentPod 写入内存 Pod。
+func (f *Fake) ApplyAgentPod(ctx context.Context, spec AgentSpec) error {
+	_ = ctx
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.AgentPods == nil {
+		f.AgentPods = map[string]AgentWorkload{}
+	}
+	f.AgentPods[namespaceKey(spec.Namespace, spec.Name)] = AgentWorkload{
+		Name:   spec.Name,
+		Phase:  "Running",
+		Ready:  true,
+		Labels: map[string]string{"maip.io/role": spec.Role},
+	}
+	return nil
+}
+
+// ApplyAgentService 写入内存 Service。
+func (f *Fake) ApplyAgentService(ctx context.Context, namespace, name string, labels map[string]string, port int32) error {
+	_ = ctx
+	_ = port
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.AgentServices == nil {
+		f.AgentServices = map[string]map[string]string{}
+	}
+	f.AgentServices[namespaceKey(namespace, name)] = cloneLabels(labels)
+	return nil
+}
+
+// ListAgentJobs 按标签过滤内存 Job。
+func (f *Fake) ListAgentJobs(ctx context.Context, namespace, selector string) ([]AgentWorkload, error) {
+	_ = ctx
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return filterWorkloads(f.AgentJobs, namespace, selector), nil
+}
+
+// ListAgentPods 按标签过滤内存 Pod。
+func (f *Fake) ListAgentPods(ctx context.Context, namespace, selector string) ([]AgentWorkload, error) {
+	_ = ctx
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return filterWorkloads(f.AgentPods, namespace, selector), nil
+}
+
+// DeleteAgentJob 删除内存 Job。
+func (f *Fake) DeleteAgentJob(ctx context.Context, namespace, name string) error {
+	_ = ctx
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.AgentJobs, namespaceKey(namespace, name))
+	return nil
+}
+
+// DeleteAgentPod 删除内存 Pod。
+func (f *Fake) DeleteAgentPod(ctx context.Context, namespace, name string) error {
+	_ = ctx
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.AgentPods, namespaceKey(namespace, name))
+	return nil
+}
+
+// DeleteAgentService 删除内存 Service。
+func (f *Fake) DeleteAgentService(ctx context.Context, namespace, name string) error {
+	_ = ctx
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.AgentServices, namespaceKey(namespace, name))
+	return nil
+}
+
+// ProxyPod 返回预设反代结果。
+func (f *Fake) ProxyPod(ctx context.Context, in PodProxyInput) (*PodProxyResult, error) {
+	_ = ctx
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, ok := f.AgentPods[namespaceKey(in.Namespace, in.Pod)]; !ok {
+		return nil, bizerr.New(CodePodNotFound)
+	}
+	status := f.ProxyStatus
+	if status == 0 {
+		status = 200
+	}
+	return &PodProxyResult{Status: status, Header: map[string]string{}, Body: f.ProxyBody}, nil
+}
+
+func namespaceKey(namespace, name string) string {
+	return namespace + "/" + name
+}
+
+func filterWorkloads(src map[string]AgentWorkload, namespace, selector string) []AgentWorkload {
+	out := make([]AgentWorkload, 0)
+	for key, item := range src {
+		ns, _, _ := strings.Cut(key, "/")
+		if namespace != "" && ns != namespace {
+			continue
+		}
+		if selector != "" && !labelsMatch(item.Labels, selector) {
+			continue
+		}
+		cp := item
+		cp.Labels = cloneLabels(item.Labels)
+		out = append(out, cp)
+	}
+	return out
+}
+
+func labelsMatch(labels map[string]string, selector string) bool {
+	for _, part := range strings.Split(selector, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		k, v, ok := strings.Cut(part, "=")
+		if !ok || labels[strings.TrimSpace(k)] != strings.TrimSpace(v) {
+			return false
+		}
+	}
+	return true
 }

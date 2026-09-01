@@ -46,6 +46,7 @@ type ListInput struct {
 	Keyword  string // 账号或姓名关键词
 	RoleCode string // 角色编码筛选
 	Enabled  *bool  // 启停筛选，nil 表示全部
+	TeamID   int64  // 所属团队筛选，0 表示全部
 }
 
 // ListOutput 是分页列表结果。
@@ -56,7 +57,7 @@ type ListOutput struct {
 
 // Service 暴露平台用户管理操作。
 type Service interface {
-	// List 返回从 LDAP 加入的平台用户。筛选、排序与分页在装配当前页之前于数据库侧完成。
+	// List 返回从 LDAP 加入的平台用户。关键词、角色、启用状态与所属团队筛选以及排序、分页均在装配当前页之前于数据库侧完成。
 	List(ctx context.Context, in ListInput) (*ListOutput, error)
 	// AddFromDirectory 按账号从 LDAP 批量加入平台用户。已存在的账号会被跳过。
 	AddFromDirectory(ctx context.Context, usernames []string, roleCode role.Code) (int, error)

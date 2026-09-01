@@ -92,7 +92,7 @@ export function MyQueuesPage() {
                           <tr className={`my-queue-row ${q.enabled ? "" : "is-disabled-row"}${q.activeJobs.length ? " has-jobs" : ""}`}>
                             <td className="my-queue-name-cell"><strong>{q.displayName}</strong></td>
                             <td className="my-queue-team-cell">{q.teams.length ? q.teams.map((t) => <span key={t.id} className="tag tag-soft">{t.name}</span>) : <span className="text-muted">—</span>}</td>
-                            <td><DcBadge code={q.datacenterCode} /></td>
+                            <td><DcBadge code={q.datacenterCode} name={q.datacenterName} shortName={q.datacenterShortName} color={q.datacenterColor} /></td>
                             <td className="my-queue-gpu-type">{q.gpuType}</td>
                             <td className="my-queue-gpu-cell">
                               <div className="my-queue-quota-line">{q.gpuUsed}/{q.gpuQuota} · 余 <strong className={free ? "text-success" : "text-danger"}>{free}</strong></div>

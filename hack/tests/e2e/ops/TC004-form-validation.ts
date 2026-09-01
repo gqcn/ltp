@@ -34,7 +34,7 @@ test("TC004 cluster and queue validation shows Chinese field errors and focuses 
   await queue.getByRole("button", { name: "创建队列" }).click();
   await expect(queue.getByText("请填写队列标识")).toBeVisible();
   await expect(queue.getByText("请填写显示名称")).toBeVisible();
-  await expect(queue.getByText("请至少关联一个团队")).toBeVisible();
+  await expect(queue.getByText("请至少关联一个团队")).toHaveCount(0);
   await expect(queue.locator("#q-form-name")).toBeFocused();
   await expect(queue.getByText(englishError)).toHaveCount(0);
   await queue.screenshot({ path: path.join(shotDir, "231100-tc004-queue-empty.png") });

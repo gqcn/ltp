@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { loginAsAdmin } from "../login";
+import { chooseSelect, selectedSelectValue } from "../select";
 
 const shotDir = path.resolve(process.cwd(), "../../temp/20260828");
 const clusterA = { id: 101, name: "ltp-a", displayName: "E2E 集群甲", status: "healthy" };
@@ -20,17 +21,17 @@ test("TC009 working cluster survives full page reload", async ({ page }) => {
   await page.getByRole("complementary").getByRole("link", { name: "任务列表" }).click();
   await expect(page.getByRole("heading", { name: "任务列表" })).toBeVisible();
 
-  const clusterSelect = page.getByLabel("工作集群");
-  await clusterSelect.selectOption(String(clusterB.id));
+  const clusterSelect = page.locator(".cluster-select .ltp-select");
+  await chooseSelect(page.getByLabel("工作集群"), String(clusterB.id));
   await confirmClusterSwitch(page);
-  await expect(clusterSelect).toHaveValue(String(clusterB.id));
+  await expect.poll(() => selectedSelectValue(clusterSelect)).toBe(String(clusterB.id));
   await expect(page.locator(".link-cell")).toHaveText(jobB);
   await page.screenshot({ path: path.join(shotDir, "150000-tc009-cluster-b-before-reload.png") });
 
   delayClusters = true;
   await page.reload();
   await expect(page.getByRole("heading", { name: "任务列表" })).toBeVisible();
-  await expect(page.getByLabel("工作集群")).toHaveValue(String(clusterB.id));
+  await expect.poll(() => selectedSelectValue(page.locator(".cluster-select .ltp-select"))).toBe(String(clusterB.id));
   await expect(page.locator(".link-cell")).toHaveText(jobB);
   await expect(page.getByText(jobA, { exact: true })).toHaveCount(0);
   await page.screenshot({ path: path.join(shotDir, "150010-tc009-cluster-b-after-reload.png") });

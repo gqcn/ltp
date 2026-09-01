@@ -291,7 +291,7 @@ func (s *serviceImpl) mustVisible(ctx context.Context, actor Actor, id int64) (*
 	if row == nil {
 		return nil, bizerr.New(CodeNotFound)
 	}
-	if actor.IsAdmin {
+	if actor.seesAllTeams() {
 		return row, nil
 	}
 	if row.Visibility == visPrivate && row.OwnerUserId != actor.UserID {

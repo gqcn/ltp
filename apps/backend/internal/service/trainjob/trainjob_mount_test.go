@@ -5,8 +5,23 @@ package trainjob
 import (
 	"testing"
 
+	"github.com/gqcn/ltp/internal/consts"
 	"github.com/gqcn/ltp/internal/service/traincfg"
 )
+
+func TestInjectTensorBoardLogDir(t *testing.T) {
+	env := map[string]string{}
+	injectTensorBoardLogDir(env, "guoqiang", "job-a")
+	want := "/data/hpc/home/guoqiang/outputs/job-a/tensorboard"
+	if env[consts.EnvTensorBoardLogDir] != want {
+		t.Fatalf("got %q want %q", env[consts.EnvTensorBoardLogDir], want)
+	}
+	env[consts.EnvTensorBoardLogDir] = "/custom"
+	injectTensorBoardLogDir(env, "guoqiang", "job-a")
+	if env[consts.EnvTensorBoardLogDir] != "/custom" {
+		t.Fatal("user logdir should not be overwritten")
+	}
+}
 
 func TestMountPathsConflict(t *testing.T) {
 	if !mountPathsConflict("/data/job/configs", "/data/job/configs") {

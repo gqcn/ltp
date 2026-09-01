@@ -16,6 +16,9 @@ export type JobItem = {
   queueName: string;
   queueDisplayName: string;
   datacenterCode: string;
+  datacenterName?: string;
+  datacenterShortName?: string;
+  datacenterColor?: string;
   gpuType: string;
   requireIb: boolean;
   nodes: number;
@@ -32,6 +35,10 @@ export type JobItem = {
   syncError: string;
   failReason: string;
   rerunFromId: number;
+  experimentId: number;
+  loss: number | null;
+  step: number | null;
+  maxSteps: number | null;
   createdAt: number;
   startedAt: number;
   endedAt: number;
@@ -55,6 +62,7 @@ export type JobDetail = JobItem & {
   workdir: string;
   env: EnvEntry[];
   mounts: MountSnapshot[];
+  experimentName?: string;
 };
 export type JobPod = { name: string; task: string; index: number; node: string; phase: string; restarts: number; role: string };
 export type JobAlert = { id: number; displayId: string; severity: string; title: string; status: string; nodeNames: string; createdAt: number };
@@ -76,6 +84,7 @@ export type JobWrite = {
   mounts: { setId: number; version: number; mountPath: string; files?: string[] }[];
   runUserId?: number;
   rerunFromId?: number;
+  projectId?: number;
 };
 
 export type MyQueueJob = {
@@ -96,6 +105,9 @@ export type MyQueue = {
   name: string;
   displayName: string;
   datacenterCode: string;
+  datacenterName?: string;
+  datacenterShortName?: string;
+  datacenterColor?: string;
   gpuType: string;
   gpuQuota: number;
   gpuUsed: number;
@@ -263,4 +275,105 @@ export function getConfigVersion(id: number, version: number) {
 }
 export function updateConfigStatus(id: number, status: string) {
   return api<Record<string, never>>(`/training/configs/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) });
+}
+
+export type ExperimentProject = {
+  id: number;
+  name: string;
+  displayName: string;
+  description: string;
+  runCount: number;
+  createdAt: number;
+  updatedAt: number;
+};
+export type ExperimentRun = {
+  id: number;
+  name: string;
+  projectId: number;
+  projectName: string;
+  clusterId: number;
+  teamId: number;
+  teamName: string;
+  jobId: number;
+  jobName: string;
+  jobStatus: string;
+  datacenterCode: string;
+  tbLogdir: string;
+  ownerUsername: string;
+  ownerNickname: string;
+  loss: number | null;
+  step: number | null;
+  maxSteps: number | null;
+  tokensPerSec: number | null;
+  metricsAt: number;
+  metricsError: string;
+  createdAt: number;
+  updatedAt: number;
+};
+export type ExperimentRunDetail = ExperimentRun & {
+  image: string;
+  command: string;
+  workdir: string;
+  nodes: number;
+  gpusPerNode: number;
+  gpuCount: number;
+  env: EnvEntry[];
+};
+export type ExperimentCompare = {
+  runs: ExperimentRunDetail[];
+  fields: { key: string; values: string[]; same: boolean }[];
+  sameLocation: boolean;
+};
+
+export function listExperimentProjects(clusterId: number) {
+  return api<{ list: ExperimentProject[] }>(`/training/experiments/projects?${qs({ clusterId })}`);
+}
+export function createExperimentProject(input: { name: string; description?: string }) {
+  return api<{ id: number }>("/training/experiments/projects", { method: "POST", body: JSON.stringify(input) });
+}
+export function updateExperimentProject(id: number, input: { name: string; description: string }) {
+  return api<Record<string, never>>(`/training/experiments/projects/${id}`, { method: "PUT", body: JSON.stringify(input) });
+}
+export function deleteExperimentProject(id: number) {
+  return api<Record<string, never>>(`/training/experiments/projects/${id}`, { method: "DELETE" });
+}
+export function listExperimentRuns(query: {
+  clusterId: number;
+  pageNum: number;
+  pageSize: number;
+  projectId?: number;
+  keyword?: string;
+  status?: string;
+  owner?: string;
+  sort?: string;
+}) {
+  return api<{ list: ExperimentRun[]; total: number }>(
+    `/training/experiments?${qs({
+      clusterId: query.clusterId,
+      pageNum: query.pageNum,
+      pageSize: query.pageSize,
+      projectId: query.projectId || undefined,
+      keyword: query.keyword,
+      status: query.status,
+      owner: query.owner,
+      sort: query.sort,
+    })}`,
+  );
+}
+export function getExperimentRun(id: number) {
+  return api<ExperimentRunDetail>(`/training/experiments/${id}`);
+}
+export function updateExperimentRun(id: number, projectId: number) {
+  return api<Record<string, never>>(`/training/experiments/${id}`, { method: "PUT", body: JSON.stringify({ projectId }) });
+}
+export function deleteExperimentRun(id: number) {
+  return api<Record<string, never>>(`/training/experiments/${id}`, { method: "DELETE" });
+}
+export function compareExperimentRuns(ids: number[]) {
+  const search = new URLSearchParams();
+  ids.forEach((id) => search.append("ids[]", String(id)));
+  return api<ExperimentCompare>(`/training/experiments/compare?${search.toString()}`);
+}
+export function openExperimentBoard(id: number) {
+  return api<{ proxyPath: string; ready: boolean; message: string }>(`/training/experiments/${id}/board`, { method: "POST" });
 }

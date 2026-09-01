@@ -4,6 +4,8 @@ package training
 
 import (
 	v1 "github.com/gqcn/ltp/api/training/v1"
+	"github.com/gqcn/ltp/internal/service/expproject"
+	"github.com/gqcn/ltp/internal/service/exprun"
 	"github.com/gqcn/ltp/internal/service/traincfg"
 	"github.com/gqcn/ltp/internal/service/trainjob"
 )
@@ -24,6 +26,9 @@ func toJobListItem(item *trainjob.Item) *v1.JobListItem {
 		QueueName:           item.QueueName,
 		QueueDisplayName:    item.QueueDisplayName,
 		DatacenterCode:      item.DatacenterCode,
+		DatacenterName:      item.DatacenterName,
+		DatacenterShortName: item.DatacenterShortName,
+		DatacenterColor:     item.DatacenterColor,
 		GpuType:             item.GPUType,
 		RequireIb:           item.RequireIB,
 		Nodes:               item.Nodes,
@@ -40,6 +45,10 @@ func toJobListItem(item *trainjob.Item) *v1.JobListItem {
 		SyncError:           item.SyncError,
 		FailReason:          item.FailReason,
 		RerunFromId:         item.RerunFromID,
+		ExperimentId:        item.ExperimentID,
+		Loss:                item.Loss,
+		Step:                item.Step,
+		MaxSteps:            item.MaxSteps,
 		CreatedAt:           item.CreatedAt,
 		StartedAt:           item.StartedAt,
 		EndedAt:             item.EndedAt,
@@ -57,6 +66,70 @@ func toJobDetail(item *trainjob.Item) *v1.GetJobRes {
 	out.Workdir = item.Workdir
 	out.Env = toEnv(item.Env)
 	out.Mounts = toMounts(item.Mounts)
+	out.ExperimentName = item.ExperimentName
+	return out
+}
+
+// toExperimentProject 转换项目投影。
+func toExperimentProject(item *expproject.Item) *v1.ExperimentProject {
+	if item == nil {
+		return &v1.ExperimentProject{}
+	}
+	return &v1.ExperimentProject{
+		Id:          item.ID,
+		Name:        item.Name,
+		DisplayName: item.DisplayName,
+		Description: item.Description,
+		RunCount:    item.RunCount,
+		CreatedAt:   item.CreatedAt,
+		UpdatedAt:   item.UpdatedAt,
+	}
+}
+
+// toExperimentRunListItem 转换 Run 列表行。
+func toExperimentRunListItem(item *exprun.Item) *v1.ExperimentRunListItem {
+	if item == nil {
+		return &v1.ExperimentRunListItem{}
+	}
+	return &v1.ExperimentRunListItem{
+		Id:             item.ID,
+		Name:           item.Name,
+		ProjectId:      item.ProjectID,
+		ProjectName:    item.ProjectName,
+		ClusterId:      item.ClusterID,
+		TeamId:         item.TeamID,
+		TeamName:       item.TeamName,
+		JobId:          item.JobID,
+		JobName:        item.JobName,
+		JobStatus:      item.JobStatus,
+		DatacenterCode: item.DatacenterCode,
+		TbLogdir:       item.TbLogdir,
+		OwnerUsername:  item.OwnerUsername,
+		OwnerNickname:  item.OwnerNickname,
+		Loss:           item.Loss,
+		Step:           item.Step,
+		MaxSteps:       item.MaxSteps,
+		TokensPerSec:   item.TokensPerSec,
+		MetricsAt:      item.MetricsAt,
+		MetricsError:   item.MetricsError,
+		CreatedAt:      item.CreatedAt,
+		UpdatedAt:      item.UpdatedAt,
+	}
+}
+
+// toExperimentRunDetail 转换 Run 详情。
+func toExperimentRunDetail(item *exprun.Item) *v1.ExperimentRunDetail {
+	out := &v1.ExperimentRunDetail{ExperimentRunListItem: *toExperimentRunListItem(item)}
+	if item == nil {
+		return out
+	}
+	out.Image = item.Image
+	out.Command = item.Command
+	out.Workdir = item.Workdir
+	out.Nodes = item.Nodes
+	out.GpusPerNode = item.GpusPerNode
+	out.GpuCount = item.GPUCount
+	out.Env = toEnv(item.Env)
 	return out
 }
 

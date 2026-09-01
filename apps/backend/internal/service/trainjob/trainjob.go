@@ -8,6 +8,7 @@ import (
 
 	"github.com/gqcn/ltp/internal/service/alert"
 	"github.com/gqcn/ltp/internal/service/cluster"
+	"github.com/gqcn/ltp/internal/service/datacenter"
 	"github.com/gqcn/ltp/internal/service/queue"
 	"github.com/gqcn/ltp/internal/service/team"
 	"github.com/gqcn/ltp/internal/service/traincfg"
@@ -26,7 +27,13 @@ type Actor struct {
 	UserID   int64  // 用户 ID
 	Username string // 账号
 	Nickname string // 显示名
-	IsAdmin  bool   // 是否管理员
+	IsAdmin  bool   // 是否本地平台管理员
+	SeeAll   bool   // 是否可看全部团队数据（管理员或 SRE）
+}
+
+// seesAllTeams 表示列表与详情不受团队成员关系限制。
+func (a Actor) seesAllTeams() bool {
+	return a.IsAdmin || a.SeeAll
 }
 
 // EnvEntry 是用户环境变量。
@@ -74,7 +81,10 @@ type Item struct {
 	QueueID             int64      // 队列
 	QueueName           string     // 队列标识
 	QueueDisplayName    string     // 队列显示名
-	DatacenterCode      string     // 数据中心
+	DatacenterCode      string     // 数据中心标识
+	DatacenterName      string     // 数据中心名称
+	DatacenterShortName string     // 数据中心简称
+	DatacenterColor     string     // 数据中心颜色
 	GPUType             string     // 卡型号
 	RequireIB           bool       // IB
 	Nodes               int        // 节点
@@ -97,9 +107,46 @@ type Item struct {
 	FailReason          string     // 失败原因
 	RerunFromID         int64      // 重跑源
 	PodNodes            string     // Pod 节点
+	ExperimentID        int64      // 关联实验
+	ExperimentName      string     // 实验名
+	Loss                *float64   // 最新 Loss
+	Step                *int64     // 最新 step
+	MaxSteps            *int64     // 进度分母
 	CreatedAt           int64      // 创建
 	StartedAt           int64      // 启动
 	EndedAt             int64      // 结束
+}
+
+// JobLink 是提交成功后创建实验 Run 所需字段。
+type JobLink struct {
+	JobID         int64  // 任务 ID
+	ClusterID     int64  // 集群
+	TeamID        int64  // 团队
+	TeamName      string // 团队名
+	Name          string // 任务名
+	Datacenter    string // 机房
+	OwnerUserID   int64  // 运行用户
+	OwnerUsername string // 账号
+	OwnerNickname string // 显示名
+	LogDir        string // TENSORBOARD_LOGDIR
+	ProjectID     int64  // 可选实验项目，0 表示默认项目
+}
+
+// ExperimentRef 是任务列表装配的实验快照。
+type ExperimentRef struct {
+	ID       int64    // Run ID
+	Name     string   // Run 名
+	Loss     *float64 // Loss
+	Step     *int64   // step
+	MaxSteps *int64   // 分母
+}
+
+// RunLinker 由实验模块实现，任务模块可选绑定。
+type RunLinker interface {
+	// EnsureForJob 按任务幂等创建 Run。
+	EnsureForJob(ctx context.Context, in JobLink) error
+	// MapByJobIDs 按任务 ID 批量返回实验快照。
+	MapByJobIDs(ctx context.Context, jobIDs []int64) (map[int64]ExperimentRef, error)
 }
 
 // ListInput 是列表条件。
@@ -141,6 +188,7 @@ type CreateInput struct {
 	Mounts       []MountInput // 挂载
 	RunUserID    int64        // 运行用户
 	RerunFromID  int64        // 重跑源
+	ProjectID    int64        // 可选实验项目，0 表示默认项目
 }
 
 // Pod 是任务 Pod。
@@ -182,26 +230,29 @@ type QueueJob struct {
 
 // MyQueue 是用户侧队列。
 type MyQueue struct {
-	ID             int64          // 队列 ID
-	Name           string         // 标识
-	DisplayName    string         // 显示名
-	DatacenterCode string         // 数据中心
-	GPUType        string         // 型号
-	GPUQuota       int            // GPU 额度
-	GPUUsed        int            // GPU 已用
-	CPUQuota       int            // CPU 额度
-	CPUUsed        int            // CPU 已用
-	MemQuotaGi     int            // 内存额度
-	MemUsedGi      int            // 内存已用
-	Features       []string       // 特性
-	Enabled        bool           // 启用
-	State          string         // 状态
-	SyncError      string         // 同步错误
-	Teams          []team.NameRef // 团队
-	GPUHoursMonth  float64        // 本月卡时
-	Running        int            // 运行数
-	Pending        int            // 排队数
-	ActiveJobs     []QueueJob     // 活跃任务
+	ID                  int64          // 队列 ID
+	Name                string         // 标识
+	DisplayName         string         // 显示名
+	DatacenterCode      string         // 数据中心标识
+	DatacenterName      string         // 数据中心名称
+	DatacenterShortName string         // 数据中心简称
+	DatacenterColor     string         // 数据中心颜色
+	GPUType             string         // 型号
+	GPUQuota            int            // GPU 额度
+	GPUUsed             int            // GPU 已用
+	CPUQuota            int            // CPU 额度
+	CPUUsed             int            // CPU 已用
+	MemQuotaGi          int            // 内存额度
+	MemUsedGi           int            // 内存已用
+	Features            []string       // 特性
+	Enabled             bool           // 启用
+	State               string         // 状态
+	SyncError           string         // 同步错误
+	Teams               []team.NameRef // 团队
+	GPUHoursMonth       float64        // 本月卡时
+	Running             int            // 运行数
+	Pending             int            // 排队数
+	ActiveJobs          []QueueJob     // 活跃任务
 }
 
 // MyQueueSummary 是汇总。
@@ -254,23 +305,32 @@ type Service interface {
 	GPUHoursMonthByQueueIDs(ctx context.Context, clusterID int64, queueIDs []int64) (map[int64]float64, error)
 	// ListRelatedJobs 按节点名查找任务，供告警中心。
 	ListRelatedJobs(ctx context.Context, clusterID int64, nodes []string) ([]RelatedJob, error)
+	// MapByIDs 按主键批量返回任务，缺失的 ID 不出现在结果中。
+	MapByIDs(ctx context.Context, ids []int64) (map[int64]*Item, error)
+	// ListJobLinksByCluster 返回集群内任务的实验关联字段，供补建 Run。零值切片表示无任务。
+	ListJobLinksByCluster(ctx context.Context, clusterID int64) ([]JobLink, error)
+	// BindRunLinker 注入实验关联，允许为 nil。
+	BindRunLinker(linker RunLinker)
 }
 
 var _ Service = (*serviceImpl)(nil)
 
 type serviceImpl struct {
-	clusterSvc cluster.Service  // 集群
-	queueSvc   queue.Service    // 队列
-	teamSvc    team.Service     // 团队
-	userSvc    user.Service     // 用户
-	cfgSvc     traincfg.Service // 配置
-	alertSvc   alert.Service    // 告警
+	clusterSvc cluster.Service    // 集群
+	queueSvc   queue.Service      // 队列
+	dcSvc      datacenter.Service // 数据中心
+	teamSvc    team.Service       // 团队
+	userSvc    user.Service       // 用户
+	cfgSvc     traincfg.Service   // 配置
+	alertSvc   alert.Service      // 告警
+	runLinker  RunLinker          // 可选实验关联
 }
 
 // New 构造训练任务服务。
 func New(
 	clusterSvc cluster.Service,
 	queueSvc queue.Service,
+	dcSvc datacenter.Service,
 	teamSvc team.Service,
 	userSvc user.Service,
 	cfgSvc traincfg.Service,
@@ -281,6 +341,9 @@ func New(
 	}
 	if queueSvc == nil {
 		return nil, gerror.New("queue service is required")
+	}
+	if dcSvc == nil {
+		return nil, gerror.New("datacenter service is required")
 	}
 	if teamSvc == nil {
 		return nil, gerror.New("team service is required")
@@ -297,9 +360,15 @@ func New(
 	return &serviceImpl{
 		clusterSvc: clusterSvc,
 		queueSvc:   queueSvc,
+		dcSvc:      dcSvc,
 		teamSvc:    teamSvc,
 		userSvc:    userSvc,
 		cfgSvc:     cfgSvc,
 		alertSvc:   alertSvc,
 	}, nil
+}
+
+// BindRunLinker 注入实验关联。
+func (s *serviceImpl) BindRunLinker(linker RunLinker) {
+	s.runLinker = linker
 }

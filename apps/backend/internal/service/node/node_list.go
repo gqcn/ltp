@@ -66,6 +66,9 @@ func (s *serviceImpl) List(ctx context.Context, in ListInput) (*ListOutput, erro
 	if err := s.attachIsolateRemarks(ctx, in.ClusterID, page); err != nil {
 		return nil, err
 	}
+	if err := s.attachDatacenterNames(ctx, page); err != nil {
+		return nil, err
+	}
 	return &ListOutput{
 		List:     page,
 		Total:    total,
@@ -168,6 +171,33 @@ func hasFaultTaint(taints []kube.Taint) bool {
 		}
 	}
 	return false
+}
+
+// attachDatacenterNames 按当前页标识批量写入数据中心名称。
+func (s *serviceImpl) attachDatacenterNames(ctx context.Context, items []*Item) error {
+	codes := make([]string, 0, len(items))
+	for _, item := range items {
+		if item != nil {
+			codes = append(codes, item.Datacenter)
+		}
+	}
+	refs, err := s.dcSvc.MapByCodes(ctx, codes)
+	if err != nil {
+		return err
+	}
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		ref, ok := refs[item.Datacenter]
+		if !ok {
+			continue
+		}
+		item.DatacenterName = ref.Name
+		item.DatacenterShortName = ref.ShortName
+		item.DatacenterColor = ref.Color
+	}
+	return nil
 }
 
 func normalizePage(pageNum int, pageSize int) (int, int) {

@@ -121,7 +121,42 @@ func (s *serviceImpl) Create(ctx context.Context, in CreateInput) (int64, error)
 		return 0, gerror.Wrap(err, "insert train job")
 	}
 	logger.Infof(ctx, "created train job %d name=%s cluster=%d", id, prepared.name, in.ClusterID)
+	s.linkExperiment(ctx, id, in.ClusterID, in.ProjectID, prepared)
 	return id, nil
+}
+
+// injectTensorBoardLogDir 在用户未指定时写入约定 TensorBoard 目录。
+func injectTensorBoardLogDir(envMap map[string]string, username, jobName string) {
+	if envMap == nil || username == "" || jobName == "" {
+		return
+	}
+	if _, ok := envMap[consts.EnvTensorBoardLogDir]; ok {
+		return
+	}
+	envMap[consts.EnvTensorBoardLogDir] = fmt.Sprintf("/data/hpc/home/%s/outputs/%s/tensorboard", username, jobName)
+}
+
+// linkExperiment 在任务提交成功后幂等创建关联 Run，失败只记日志。
+func (s *serviceImpl) linkExperiment(ctx context.Context, jobID, clusterID, projectID int64, prepared *preparedCreate) {
+	if s.runLinker == nil {
+		return
+	}
+	err := s.runLinker.EnsureForJob(ctx, JobLink{
+		JobID:         jobID,
+		ClusterID:     clusterID,
+		TeamID:        prepared.teamID,
+		TeamName:      prepared.teamName,
+		Name:          prepared.name,
+		Datacenter:    prepared.datacenter,
+		OwnerUserID:   prepared.ownerID,
+		OwnerUsername: prepared.ownerUser,
+		OwnerNickname: prepared.ownerNick,
+		LogDir:        prepared.envMap[consts.EnvTensorBoardLogDir],
+		ProjectID:     projectID,
+	})
+	if err != nil {
+		logger.Warningf(ctx, "ensure experiment run for job %d: %v", jobID, err)
+	}
 }
 
 type preparedCreate struct {
@@ -260,6 +295,7 @@ func (s *serviceImpl) prepareCreate(ctx context.Context, in CreateInput) (*prepa
 		}
 		envMap[key] = e.Value
 	}
+	injectTensorBoardLogDir(envMap, ownerUser, name)
 	mounts, err := s.resolveMounts(ctx, in.Actor, in.TeamID, ownerUser, name, in.Mounts)
 	if err != nil {
 		return nil, err

@@ -31,6 +31,7 @@ export type UserListQuery = {
   keyword?: string;
   roleCode?: string;
   enabled?: boolean;
+  teamId?: number;
 };
 
 export type DirectoryUser = {
@@ -54,6 +55,9 @@ export function listUsers(query: UserListQuery) {
   }
   if (query.enabled !== undefined) {
     params.set("enabled", String(query.enabled));
+  }
+  if (query.teamId) {
+    params.set("teamId", String(query.teamId));
   }
   return api<UserList>(`/users?${params.toString()}`);
 }

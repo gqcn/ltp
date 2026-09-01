@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ListConfigsReq 分页查询配置集。
 type ListConfigsReq struct {
-	g.Meta    `path:"/training/configs" method:"get" tags:"Training" summary:"列出配置集" dc:"按可见性过滤：private 仅创建人与管理员可见。列表不返回文件内容。" permission:"training:config:query"`
+	g.Meta    `path:"/training/configs" method:"get" tags:"Training" summary:"列出配置集" dc:"按可见性与团队过滤。算法工程师仅见自己加入的团队中的共享配置及本人 private 配置；平台管理员与 SRE 可见全部。列表不返回文件内容。" permission:"training:config:query"`
 	PageNum   int    `json:"pageNum" d:"1" v:"min:1" dc:"页码" eg:"1"`
 	PageSize  int    `json:"pageSize" d:"10" v:"min:1|max:100" dc:"每页条数" eg:"10"`
 	Keyword   string `json:"keyword" dc:"可选模糊匹配显示名称或标识。" eg:"slm"`

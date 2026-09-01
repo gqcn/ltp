@@ -28,6 +28,25 @@ export type TeamQueue = {
   name: string;
   displayName: string;
   datacenterCode: string;
+  datacenterName?: string;
+  datacenterShortName?: string;
+  datacenterColor?: string;
+  gpuType?: string;
+  enabled: boolean;
+  state: string;
+};
+
+export type TeamQueueOption = {
+  id: number;
+  name: string;
+  displayName: string;
+  datacenterCode: string;
+  datacenterName?: string;
+  datacenterShortName?: string;
+  datacenterColor?: string;
+  gpuType: string;
+  gpuQuota: number;
+  gpuUsed: number;
   enabled: boolean;
   state: string;
 };
@@ -81,4 +100,21 @@ export function addTeamMember(teamId: number, userId: number) {
 
 export function removeTeamMember(teamId: number, userId: number) {
   return api<Record<string, never>>(`/teams/${teamId}/members/${userId}`, { method: "DELETE" });
+}
+
+export function listTeamQueueOptions(query: { pageNum: number; pageSize: number; keyword?: string }) {
+  const params = new URLSearchParams();
+  params.set("pageNum", String(query.pageNum));
+  params.set("pageSize", String(query.pageSize));
+  if (query.keyword) {
+    params.set("keyword", query.keyword);
+  }
+  return api<{ list: TeamQueueOption[]; total: number }>(`/teams/queue-options?${params.toString()}`);
+}
+
+export function replaceTeamQueues(teamId: number, queueIds: number[]) {
+  return api<Record<string, never>>(`/teams/${teamId}/queues`, {
+    method: "PUT",
+    body: JSON.stringify({ queueIds }),
+  });
 }

@@ -23,6 +23,9 @@ import { MyQueuesPage } from "@/pages/MyQueuesPage";
 import { ConfigListPage } from "@/pages/ConfigListPage";
 import { ConfigEditPage } from "@/pages/ConfigEditPage";
 import { ConfigDetailPage } from "@/pages/ConfigDetailPage";
+import { ExperimentListPage } from "@/pages/ExperimentListPage";
+import { ExperimentDetailPage } from "@/pages/ExperimentDetailPage";
+import { ExperimentComparePage } from "@/pages/ExperimentComparePage";
 
 function Guard({ user, menu, children }: { user: SessionUser; menu: string; children: ReactNode }) {
   if (!canVisit(user, menu)) {
@@ -82,6 +85,36 @@ export function App() {
             user ? (
               <Guard user={user} menu={MENU_TRAINING}>
                 <JobDetailPage />
+              </Guard>
+            ) : null
+          }
+        />
+        <Route
+          path="training/experiments"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_TRAINING}>
+                <ExperimentListPage />
+              </Guard>
+            ) : null
+          }
+        />
+        <Route
+          path="training/experiments/compare"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_TRAINING}>
+                <ExperimentComparePage />
+              </Guard>
+            ) : null
+          }
+        />
+        <Route
+          path="training/experiments/:id"
+          element={
+            user ? (
+              <Guard user={user} menu={MENU_TRAINING}>
+                <ExperimentDetailPage />
               </Guard>
             ) : null
           }

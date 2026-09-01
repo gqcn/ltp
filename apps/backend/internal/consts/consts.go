@@ -34,4 +34,18 @@ const (
 	TrainingTaskName = "worker"
 	// TrainingMasterPort 是注入的 MASTER_PORT。
 	TrainingMasterPort = "23456"
+	// EnvTensorBoardLogDir 是注入训练容器的 TensorBoard 目录环境变量名。
+	EnvTensorBoardLogDir = "TENSORBOARD_LOGDIR"
+	// LabelKeyAgent 标记平台实验代理对象。
+	LabelKeyAgent = "maip.io/agent"
+	// LabelKeyAgentRole 是实验代理角色。
+	LabelKeyAgentRole = "maip.io/role"
+	// LabelKeyRunID 是实验 Run 数字 ID。
+	LabelKeyRunID = "maip.io/run-id"
+	// AgentLabelValue 是实验代理对象的 agent 标签值。
+	AgentLabelValue = "experiment"
+	// AgentImageDefault 是实验代理默认镜像。
+	AgentImageDefault = "ltp/experiment-agent:dev"
+	// ExperimentAgentPort 是 TensorBoard 服务端口。
+	ExperimentAgentPort = int32(6006)
 )

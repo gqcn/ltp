@@ -12,7 +12,7 @@ test("TC001 ops menus except cluster overview", async ({ page }) => {
   await expect(page.getByRole("link", { name: "告警中心" })).toBeVisible();
   await expect(page.getByText("集群概览")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "任务列表" })).toBeVisible();
-  await expect(page.getByText("实验分析")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "实验分析" })).toBeVisible();
 
   await page.getByRole("link", { name: "集群管理" }).click();
   await expect(page.getByRole("heading", { name: "集群管理" })).toBeVisible();

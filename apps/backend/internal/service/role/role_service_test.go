@@ -1,4 +1,4 @@
-// 本文件验证角色列表与改名。
+// 本文件验证角色列表、改名，以及管理员 / SRE 的全团队可见性判断。
 
 package role
 
@@ -13,6 +13,18 @@ import (
 
 	"github.com/gqcn/ltp/pkg/bizerr"
 )
+
+func TestSeesAllTeamData(t *testing.T) {
+	if !SeesAllTeamData(true, CodeAlgo) {
+		t.Fatal("admin should see all teams")
+	}
+	if !SeesAllTeamData(false, CodeSRE) {
+		t.Fatal("sre should see all teams")
+	}
+	if SeesAllTeamData(false, CodeAlgo) {
+		t.Fatal("algo should be scoped to membership")
+	}
+}
 
 func TestRoleListAndRename(t *testing.T) {
 	if os.Getenv("LTP_SKIP_DB_TEST") == "1" {

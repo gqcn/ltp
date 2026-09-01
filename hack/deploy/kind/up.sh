@@ -64,6 +64,13 @@ helm upgrade --install volcano volcano-sh/volcano \
 echo "等待 Queue CRD…"
 kubectl --context "$CONTEXT" wait --for=condition=Established crd/queues.scheduling.volcano.sh --timeout=120s
 
+AGENT_DIR="${ROOT_DIR}/hack/deploy/experiment-agent"
+if [ -f "${AGENT_DIR}/Dockerfile" ]; then
+  echo "构建并加载实验代理镜像 ltp/experiment-agent:dev …"
+  docker build -t ltp/experiment-agent:dev "${AGENT_DIR}"
+  kind load docker-image ltp/experiment-agent:dev --name "${CLUSTER_NAME}"
+fi
+
 echo
 echo "kind 集群已就绪。"
 echo "  context:    ${CONTEXT}"

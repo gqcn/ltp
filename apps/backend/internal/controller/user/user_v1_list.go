@@ -17,6 +17,7 @@ func (c *ControllerV1) List(ctx context.Context, req *v1.ListReq) (res *v1.ListR
 		Keyword:  req.Keyword,
 		RoleCode: req.RoleCode,
 		Enabled:  req.Enabled,
+		TeamID:   req.TeamId,
 	})
 	if err != nil {
 		return nil, err

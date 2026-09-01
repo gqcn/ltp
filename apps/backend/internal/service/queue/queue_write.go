@@ -256,6 +256,7 @@ func (s *serviceImpl) prepareWrite(ctx context.Context, in WriteInput, excludeID
 	}, nil
 }
 
+// normalizeTeamIDs 去重并校验团队存在。空列表表示不绑定团队。
 func (s *serviceImpl) normalizeTeamIDs(ctx context.Context, ids []int64) ([]int64, error) {
 	seen := map[int64]struct{}{}
 	var out []int64
@@ -270,7 +271,7 @@ func (s *serviceImpl) normalizeTeamIDs(ctx context.Context, ids []int64) ([]int6
 		out = append(out, id)
 	}
 	if len(out) == 0 {
-		return nil, errInvalid("请至少关联一个团队")
+		return []int64{}, nil
 	}
 	if len(out) > maxTeamIDs {
 		return nil, errInvalid("单次最多关联 100 个团队")
@@ -295,6 +296,59 @@ func (s *serviceImpl) replaceTeams(ctx context.Context, queueID int64, teamIDs [
 		}
 	}
 	return nil
+}
+
+// ReplaceQueuesForTeam 按队列 ID 全量替换该团队绑定。
+func (s *serviceImpl) ReplaceQueuesForTeam(ctx context.Context, teamID int64, queueIDs []int64) error {
+	ids, err := s.normalizeBindQueueIDs(ctx, queueIDs)
+	if err != nil {
+		return err
+	}
+	err = dao.OpsQueueTeam.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
+		if _, delErr := dao.OpsQueueTeam.Ctx(ctx).Where(do.OpsQueueTeam{TeamId: teamID}).Delete(); delErr != nil {
+			return gerror.Wrap(delErr, "clear team queues")
+		}
+		for _, queueID := range ids {
+			if _, insErr := dao.OpsQueueTeam.Ctx(ctx).Data(do.OpsQueueTeam{QueueId: queueID, TeamId: teamID}).Insert(); insErr != nil {
+				return gerror.Wrap(insErr, "insert team queue")
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	logger.Infof(ctx, "replaced queues for team %d count=%d", teamID, len(ids))
+	return nil
+}
+
+func (s *serviceImpl) normalizeBindQueueIDs(ctx context.Context, ids []int64) ([]int64, error) {
+	seen := map[int64]struct{}{}
+	var out []int64
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	if len(out) == 0 {
+		return []int64{}, nil
+	}
+	if len(out) > maxTeamIDs {
+		return nil, errInvalid("单次最多关联 100 个队列")
+	}
+	n, err := dao.OpsQueue.Ctx(ctx).WhereIn(dao.OpsQueue.Columns().Id, out).Count()
+	if err != nil {
+		return nil, gerror.Wrap(err, "count bind queues")
+	}
+	if n != len(out) {
+		return nil, errInvalid("所选队列不存在")
+	}
+	return out, nil
 }
 
 func (s *serviceImpl) mustGet(ctx context.Context, id int64) (*entity.OpsQueue, error) {
