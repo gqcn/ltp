@@ -1,0 +1,2281 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MAIP-大模型训练平台 · 交互原型</title>
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <script>
+    (function () {
+      try {
+        var key = "maip_theme_v1";
+        var saved = localStorage.getItem(key);
+        var theme = saved === "light" || saved === "dark"
+          ? saved
+          : (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+        document.documentElement.setAttribute("data-theme", theme);
+        if (localStorage.getItem("maip_sidebar_v1") === "collapsed") {
+          document.documentElement.setAttribute("data-sidebar", "collapsed");
+        }
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="assets/css/main.css?v=20260827-cfg-draft" />
+</head>
+<body>
+  <!-- ========== Login ========== -->
+  <div class="login-screen" id="login-screen">
+    <div class="login-bg" aria-hidden="true">
+      <div class="login-bg-grid"></div>
+      <div class="login-bg-glow login-bg-glow-a"></div>
+      <div class="login-bg-glow login-bg-glow-b"></div>
+    </div>
+    <button type="button" class="theme-toggle login-theme-toggle js-theme-toggle" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
+      <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+      </svg>
+      <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3a7 7 0 0 0 11.5 11.5z"/>
+      </svg>
+    </button>
+    <div class="login-panel">
+      <div class="login-brand">
+        <div class="login-logo" aria-hidden="true">AI</div>
+        <div class="login-brand-text">
+          <div class="login-title">MAIP-大模型训练平台</div>
+          <div class="login-subtitle" id="login-subtitle">企业 LDAP 身份认证</div>
+        </div>
+      </div>
+
+      <!-- 登录方式：LDAP 用户 / 平台管理员 -->
+      <div class="login-mode-tabs" id="login-mode-tabs" role="tablist" aria-label="登录方式">
+        <button type="button" class="login-mode-tab is-active" role="tab" id="login-mode-ldap" data-mode="ldap" aria-selected="true" aria-controls="login-form">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          LDAP 用户
+        </button>
+        <button type="button" class="login-mode-tab" role="tab" id="login-mode-admin" data-mode="admin" aria-selected="false" aria-controls="login-form">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          平台管理员
+        </button>
+      </div>
+
+      <form class="login-form" id="login-form" autocomplete="on">
+        <div id="login-error" class="login-error hidden" role="alert"></div>
+        <div class="form-group">
+          <label for="login-username" id="login-username-label">域账号</label>
+          <div class="login-input-wrap">
+            <span class="login-input-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <input id="login-username" name="username" type="text" placeholder="例如 guoqiang" autocomplete="username" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="login-password" id="login-password-label">密码</label>
+          <div class="login-input-wrap has-toggle">
+            <span class="login-input-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </span>
+            <input id="login-password" name="password" type="password" placeholder="LDAP 密码" autocomplete="current-password" />
+            <button type="button" class="login-toggle-pwd" id="login-toggle-pwd" title="显示/隐藏密码">显示</button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary login-submit" id="login-submit">
+          <span class="login-submit-text" id="login-submit-text">LDAP 登录</span>
+          <span class="login-submit-loading hidden">认证中…</span>
+        </button>
+      </form>
+
+      <div class="login-demo-tip is-collapsed" id="login-demo-tip">
+        <button type="button" class="login-demo-tip-toggle" id="login-demo-tip-toggle" aria-expanded="false" aria-controls="login-demo-tip-body">
+          <span class="login-demo-tip-title">演示账号</span>
+          <span class="ui-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
+          </span>
+        </button>
+        <div class="login-demo-tip-body" id="login-demo-tip-body" hidden>
+          <div class="login-demo-accounts" id="login-demo-accounts">
+            <!-- filled by app.js -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app hidden" id="app-shell">
+    <!-- ========== Sidebar ========== -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo">AI</div>
+        <div class="brand-text">
+          <span class="brand-name">MAIP-大模型训练平台</span>
+          <span class="brand-sub">LLM Training Platform</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section" data-nav-section="training">
+          <div class="nav-section-title">训练中心</div>
+          <div class="nav-item" data-page="jobs">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="18" cy="18" r="3"/></svg>
+            <span class="nav-item-label">任务列表</span>
+          </div>
+          <div class="nav-item" data-page="job-create">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            <span class="nav-item-label">新建任务</span>
+          </div>
+          <div class="nav-item" data-page="my-queues">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h12M4 18h8"/><circle cx="19" cy="18" r="3"/><path d="M19 16.5v3M17.5 18h3"/></svg>
+            <span class="nav-item-label">我的队列</span>
+          </div>
+          <div class="nav-item" data-page="configs">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/><path d="M18 14v4M16 16h4"/></svg>
+            <span class="nav-item-label">配置管理</span>
+          </div>
+          <div class="nav-item" data-page="experiments">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16"/><path d="M8 16l3-5 3 3 5-8"/><circle cx="18" cy="6" r="2"/></svg>
+            <span class="nav-item-label">实验分析</span>
+          </div>
+        </div>
+
+        <div class="nav-section" data-nav-section="ops">
+          <div class="nav-section-title">运维中心</div>
+          <div class="nav-item active" data-page="dashboard">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            <span class="nav-item-label">集群概览</span>
+          </div>
+          <div class="nav-item" data-page="dc-mgmt">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/><path d="M9 10h.01M15 10h.01"/></svg>
+            <span class="nav-item-label">数据中心</span>
+          </div>
+          <div class="nav-item" data-page="cluster-mgmt">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 3"/></svg>
+            <span class="nav-item-label">集群管理</span>
+          </div>
+          <div class="nav-item" data-page="node-mgmt">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M6 8h.01M10 8h.01M14 8h.01"/></svg>
+            <span class="nav-item-label">节点管理</span>
+          </div>
+          <div class="nav-item" data-page="queue-mgmt">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h12M4 18h8"/><path d="M18 12v6M15 15h6"/></svg>
+            <span class="nav-item-label">队列管理</span>
+          </div>
+          <div class="nav-item" data-page="alerts">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="nav-item-label">告警中心</span>
+            <span class="badge" id="nav-alert-badge">0</span>
+          </div>
+        </div>
+
+        <div class="nav-section" data-nav-section="platform">
+          <div class="nav-section-title">平台中心</div>
+          <div class="nav-item" data-page="user-mgmt">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span class="nav-item-label">用户管理</span>
+          </div>
+          <div class="nav-item" data-page="team-mgmt">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span class="nav-item-label">团队管理</span>
+          </div>
+          <div class="nav-item" data-page="role-mgmt">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+            <span class="nav-item-label">角色管理</span>
+          </div>
+          <div class="nav-item" data-page="system-config">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1-.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+            <span class="nav-item-label">系统配置</span>
+          </div>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button type="button" class="theme-toggle sidebar-theme-toggle js-theme-toggle" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
+          <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+          </svg>
+          <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3a7 7 0 0 0 11.5 11.5z"/>
+          </svg>
+          <span class="theme-toggle-label theme-label-to-light">浅色主题</span>
+          <span class="theme-toggle-label theme-label-to-dark">深色主题</span>
+        </button>
+        <div class="sidebar-user-wrap" id="sidebar-user-wrap">
+          <button type="button" class="user-chip sidebar-user" id="sidebar-user" aria-haspopup="menu" aria-expanded="false" title="账户菜单">
+            <div class="user-avatar" id="sidebar-user-avatar">郭</div>
+            <div class="sidebar-user-meta">
+              <span class="sidebar-user-name" id="sidebar-user-name">郭强</span>
+              <span class="sidebar-user-role" id="sidebar-user-role">人工智能全干工程师</span>
+            </div>
+            <span class="ui-chevron sidebar-user-chevron" aria-hidden="true" title="账户菜单">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 15l6-6 6 6"/>
+              </svg>
+            </span>
+          </button>
+          <div class="sidebar-user-menu hidden" id="sidebar-user-menu" role="menu">
+            <div class="sidebar-user-menu-head">
+              <div class="sidebar-user-menu-name" id="sidebar-menu-name">郭强</div>
+              <div class="sidebar-user-menu-sub mono" id="sidebar-menu-sub">guoqiang</div>
+            </div>
+            <button type="button" class="sidebar-user-menu-item is-danger" id="btn-logout" role="menuitem">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
+              退出登录
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ========== Main ========== -->
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button type="button" class="sidebar-toggle js-sidebar-toggle" aria-label="折叠侧栏" title="折叠侧栏">
+            <svg class="sidebar-toggle-icon-collapse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M9 3v18"/>
+              <path d="M16 15l-3-3 3-3"/>
+            </svg>
+            <svg class="sidebar-toggle-icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M9 3v18"/>
+              <path d="M14 9l3 3-3 3"/>
+            </svg>
+          </button>
+          <div class="breadcrumb" id="breadcrumb">
+            <span class="current">集群概览</span>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <div class="cluster-select-wrap" id="cluster-select-wrap" title="切换工作集群后，本页资源数据将整体切换">
+            <span class="cluster-select-label">工作集群</span>
+            <div class="cluster-select" id="cluster-select-box">
+              <span class="dot" id="cluster-select-dot" title="集群状态"></span>
+              <select id="cluster-select" aria-label="工作集群">
+                <!-- options filled by app.js from MOCK.clusters -->
+              </select>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- ===== Dashboard ===== -->
+        <section class="page active" id="page-dashboard">
+          <div class="page-header">
+            <div>
+              <h1>集群概览</h1>
+              <p class="desc" id="dash-page-desc">当前工作集群资源水位 · 节点健康 · 卡型号与数据中心分布</p>
+            </div>
+          </div>
+
+          <!-- 当前集群摘要 -->
+          <div class="dash-cluster-strip" id="dash-cluster-strip"></div>
+
+          <!-- 资源总览（单层：避免与 KPI 重复） -->
+          <div class="dash-overview-grid mb-16" id="dash-resource-panels">
+            <div class="card dash-overview-card">
+              <div class="card-header">
+                <h3>GPU 资源池</h3>
+                <button type="button" class="btn btn-ghost btn-sm" data-dash-nav="node-mgmt">节点</button>
+              </div>
+              <div class="card-body" id="dash-gpu-pool"></div>
+            </div>
+            <div class="card dash-overview-card">
+              <div class="card-header">
+                <h3>节点与网络</h3>
+                <span class="text-muted" style="font-size:12px">调度 · IB</span>
+              </div>
+              <div class="card-body" id="dash-node-net"></div>
+            </div>
+            <div class="card dash-overview-card">
+              <div class="card-header">
+                <h3>共享存储</h3>
+                <span class="text-muted" style="font-size:12px">集群聚合</span>
+              </div>
+              <div class="card-body" id="dash-storage"></div>
+            </div>
+          </div>
+
+          <!-- 数据中心资源水位 -->
+          <div class="card mb-16" id="dash-dc-capacity"></div>
+
+          <!-- 卡型号分布 -->
+          <div class="card mb-16" id="dash-gpu-types"></div>
+
+          <!-- 利用率趋势 -->
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-header">
+                <h3>GPU 利用率</h3>
+                <span class="text-muted" style="font-size:12px">近 1 小时 · 集群聚合</span>
+              </div>
+              <div class="card-body" id="dash-chart-gpu"></div>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h3>IB 带宽利用率</h3>
+                <span class="text-muted" style="font-size:12px">近 1 小时 · IB 节点</span>
+              </div>
+              <div class="card-body" id="dash-chart-ib"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Experiments List ===== -->
+        <section class="page" id="page-experiments">
+          <div class="page-header">
+            <div>
+              <h1>实验分析</h1>
+              <p class="desc">TensorBoard 实验跟踪 · logdir 管理 · 多 Run 对比 · 关联训练任务</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-secondary" id="btn-exp-compare" type="button" disabled>TensorBoard 对比 (0)</button>
+              <button class="btn btn-secondary" id="btn-exp-docs" type="button">接入说明</button>
+            </div>
+          </div>
+
+          <div class="exp-layout">
+            <!-- 左侧：项目树 + 项目管理 -->
+            <aside class="exp-projects card">
+              <div class="card-header exp-proj-header">
+                <h3 style="font-size:13px">项目</h3>
+                <button type="button" class="btn btn-ghost btn-sm exp-proj-add" id="btn-proj-create" title="新建项目">+ 新建</button>
+              </div>
+              <div class="exp-project-list" id="exp-project-list"></div>
+              <div class="exp-proj-footer">
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-proj-archived" style="width:100%;justify-content:center;font-size:12px">
+                  查看已归档项目
+                </button>
+              </div>
+            </aside>
+
+            <!-- 右侧：Run 列表 -->
+            <div class="exp-main">
+              <div class="exp-kpi-row" id="exp-kpi-row"></div>
+              <div class="toolbar exp-toolbar">
+                <div class="search-box">
+                  <span class="search-icon">⌕</span>
+                  <input id="exp-search" placeholder="搜索实验名 / ID / Tag / 创建人..." />
+                </div>
+                <select class="filter-select" id="exp-filter-status">
+                  <option value="all">全部状态</option>
+                  <option value="running">运行中</option>
+                  <option value="finished">已完成</option>
+                  <option value="failed">失败</option>
+                  <option value="crashed">已中止</option>
+                </select>
+                <select class="filter-select" id="exp-filter-owner">
+                  <option value="all">全部创建人</option>
+                </select>
+                <select class="filter-select" id="exp-sort">
+                  <option value="updated_desc">最近更新</option>
+                  <option value="created_desc">最近创建</option>
+                  <option value="loss_asc">Train Loss ↑</option>
+                  <option value="loss_desc">Train Loss ↓</option>
+                </select>
+              </div>
+              <div class="card exp-list-card">
+                <div class="card-body flush">
+                  <div class="table-wrap exp-table-wrap">
+                    <table class="table exp-table">
+                      <thead>
+                        <tr>
+                          <th class="exp-col-check"><input type="checkbox" id="exp-check-all" title="全选当前页" /></th>
+                          <th class="exp-col-run">实验 Run</th>
+                          <th class="exp-col-status">状态</th>
+                          <th class="exp-col-loss">Loss</th>
+                          <th class="exp-col-step">进度</th>
+                          <th class="exp-col-tps">吞吐</th>
+                          <th class="exp-col-job">关联任务</th>
+                          <th class="exp-col-owner">创建人 / 更新</th>
+                        </tr>
+                      </thead>
+                      <tbody id="exp-tbody"></tbody>
+                    </table>
+                  </div>
+                  <div id="exp-pagination"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Experiment Detail ===== -->
+        <section class="page" id="page-exp-detail">
+          <div class="detail-hero" id="exp-detail-hero"></div>
+          <div class="card">
+            <div class="tabs" id="exp-detail-tabs">
+              <div class="tab active" data-tab="charts">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16"/><path d="M8 16l3-5 3 3 5-8"/></svg>
+                TensorBoard / 曲线
+              </div>
+              <div class="tab" data-tab="config">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                超参配置
+              </div>
+              <div class="tab" data-tab="artifacts">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                产物 / Checkpoint
+              </div>
+              <div class="tab" data-tab="system">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                系统指标
+              </div>
+              <div class="tab" data-tab="overview">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                概览与路径
+              </div>
+            </div>
+            <div id="exp-detail-panels">
+              <div class="tab-panel active" data-panel="charts" id="panel-exp-charts"></div>
+              <div class="tab-panel" data-panel="config" id="panel-exp-config"></div>
+              <div class="tab-panel" data-panel="artifacts" id="panel-exp-artifacts"></div>
+              <div class="tab-panel" data-panel="system" id="panel-exp-system"></div>
+              <div class="tab-panel" data-panel="overview" id="panel-exp-overview"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Experiment Compare ===== -->
+        <section class="page" id="page-exp-compare">
+          <div class="page-header">
+            <div>
+              <h1>实验对比</h1>
+              <p class="desc" id="exp-compare-desc">主路径：多 logdir 启动 TensorBoard · 辅以平台超参 Diff 与示意曲线</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-secondary" type="button" id="btn-exp-compare-back">返回列表</button>
+            </div>
+          </div>
+          <div id="exp-compare-body"></div>
+        </section>
+
+        <!-- ===== My Queues (user-facing quota) ===== -->
+        <section class="page" id="page-my-queues">
+          <div class="page-header">
+            <div>
+              <h1>我的队列</h1>
+              <p class="desc">我可使用的资源队列 · 查看 GPU / CPU / 内存额度与占用 · 卡时按「GPU 数 × 运行时长」累计，后续可用于训练任务成本核算</p>
+            </div>
+          </div>
+          <div id="my-queues-summary" class="mb-16"></div>
+          <div class="card">
+            <div class="card-body flush" id="my-queues-body"></div>
+          </div>
+        </section>
+
+        <!-- ===== Jobs List ===== -->
+        <section class="page" id="page-jobs">
+          <div class="page-header">
+            <div>
+              <h1>任务列表</h1>
+              <p class="desc">提交、查看与管理 Volcano 训练作业</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary" onclick="App.goCreateJob()">+ 新建训练任务</button>
+            </div>
+          </div>
+          <div class="toolbar">
+            <div class="search-box">
+              <span class="search-icon">⌕</span>
+              <input id="job-search" placeholder="搜索任务名 / 创建人..." />
+            </div>
+            <select class="filter-select" id="job-filter-team" aria-label="按团队筛选">
+              <option value="all">全部团队</option>
+            </select>
+            <select class="filter-select" id="job-filter-queue" aria-label="按队列筛选">
+              <option value="all">全部队列</option>
+            </select>
+            <select class="filter-select" id="job-filter-status">
+              <option value="all">全部状态</option>
+              <option value="running">运行中</option>
+              <option value="starting">启动中</option>
+              <option value="queued">排队中</option>
+              <option value="success">成功</option>
+              <option value="failed">失败</option>
+              <option value="cancelled">已取消</option>
+            </select>
+            <select class="filter-select" id="job-filter-priority" aria-label="按优先级筛选">
+              <option value="all">全部优先级</option>
+              <option value="P0">P0 最高</option>
+              <option value="P1">P1 高</option>
+              <option value="P2">P2 中</option>
+              <option value="P3">P3 低</option>
+            </select>
+          </div>
+          <div class="card">
+            <div class="card-body flush">
+              <div class="table-wrap">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>任务</th>
+                      <th>状态</th>
+                      <th>优先级</th>
+                      <th>团队 / 队列</th>
+                      <th>数据中心</th>
+                      <th>资源</th>
+                      <th>时长</th>
+                      <th>创建人</th>
+                      <th class="th-created">创建时间</th>
+                      <th class="th-actions">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="jobs-tbody"></tbody>
+                </table>
+              </div>
+              <div id="jobs-pagination"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Job Create / Rerun ===== -->
+        <section class="page" id="page-job-create">
+          <div class="page-header">
+            <div>
+              <h1 id="create-page-title">创建训练任务</h1>
+              <p class="desc" id="create-page-desc">选择团队与资源队列，按队列额度配置规格与启动参数后提交（IB 能力由所选队列决定）</p>
+            </div>
+          </div>
+
+          <div id="rerun-banner" class="demo-banner rerun-banner hidden">
+            <span id="rerun-banner-text">基于任务创建，表单已回填源任务配置，提交将创建新的任务</span>
+          </div>
+
+          <div class="wizard-layout">
+            <div class="card job-create-form-card">
+              <div class="tabs create-form-tabs" id="create-form-tabs" role="navigation" aria-label="任务表单章节">
+                <button type="button" class="tab active" data-create-tab="basic" aria-current="true" aria-controls="create-section-basic">
+                  <span class="num">1</span>
+                  <span class="create-tab-copy">
+                    <span class="create-tab-title">基本信息</span>
+                    <span class="create-tab-meta" data-create-tab-meta="basic">名称 / 工作路径</span>
+                  </span>
+                </button>
+                <button type="button" class="tab" data-create-tab="resources" aria-current="false" aria-controls="create-section-resources">
+                  <span class="num">2</span>
+                  <span class="create-tab-copy">
+                    <span class="create-tab-title">资源规格</span>
+                    <span class="create-tab-meta" data-create-tab-meta="resources">团队 / 队列 / 规格</span>
+                  </span>
+                </button>
+                <button type="button" class="tab" data-create-tab="launch" aria-current="false" aria-controls="create-section-launch">
+                  <span class="num">3</span>
+                  <span class="create-tab-copy">
+                    <span class="create-tab-title">镜像与启动</span>
+                    <span class="create-tab-meta" data-create-tab-meta="launch">镜像 / 命令 / 环境</span>
+                  </span>
+                </button>
+                <button type="button" class="tab" data-create-tab="configs" aria-current="false" aria-controls="create-section-configs">
+                  <span class="num">4</span>
+                  <span class="create-tab-copy">
+                    <span class="create-tab-title">配置挂载</span>
+                    <span class="create-tab-meta" data-create-tab-meta="configs">可选</span>
+                  </span>
+                </button>
+                <button type="button" class="tab hidden" data-create-tab="source" id="create-tab-source" aria-current="false" aria-controls="rerun-source-section">
+                  <span class="num">5</span>
+                  <span class="create-tab-copy">
+                    <span class="create-tab-title">原任务</span>
+                    <span class="create-tab-meta">只读参考</span>
+                  </span>
+                </button>
+              </div>
+              <div id="create-form-panels">
+                <div class="tab-panel create-form-section" data-panel="basic" id="create-section-basic" role="region" aria-labelledby="create-section-basic-title">
+                  <div class="form-section-title" id="create-section-basic-title"><span class="num">1</span> 基本信息</div>
+                  <div class="form-grid">
+                    <div class="form-group full">
+                      <div class="field-label-row">
+                        <label for="create-name">任务名称 <span class="req">*</span></label>
+                        <button type="button" class="field-help" data-tip="重跑时可沿用原名称或追加后缀，便于区分任务" aria-label="任务名称说明">?</button>
+                      </div>
+                      <input id="create-name" placeholder="例如 slm-7b-pretrain-phase4" />
+                    </div>
+                    <div class="form-group full hidden" id="create-run-user-group">
+                      <div class="field-label-row">
+                        <label for="create-run-user-search">运行用户 <span class="req">*</span></label>
+                        <button type="button" class="field-help" data-tip="本地 admin 不在 LDAP 中，不能作为容器运行身份。请检索平台已接入的 LDAP 用户；任务将以该用户 UID 与家目录运行。" aria-label="运行用户说明">?</button>
+                      </div>
+                      <div class="user-picker" id="create-run-user-picker">
+                        <div class="user-picker-control">
+                          <span class="user-picker-icon" aria-hidden="true"></span>
+                          <input
+                            id="create-run-user-search"
+                            type="text"
+                            placeholder="搜索姓名 / 账号 / 邮箱 / 部门..."
+                            autocomplete="off"
+                            aria-autocomplete="list"
+                            aria-controls="create-run-user-results"
+                          />
+                          <button type="button" class="user-picker-clear hidden" id="create-run-user-clear" title="清除">✕</button>
+                        </div>
+                        <input type="hidden" id="create-run-user" value="" />
+                        <div class="user-picker-selected hidden" id="create-run-user-selected"></div>
+                        <div class="user-picker-dropdown hidden" id="create-run-user-results" role="listbox"></div>
+                      </div>
+                      <p class="field-help-text" id="create-run-user-hint">本地 admin 不在 LDAP。须指定一名平台 LDAP 用户作为运行身份，工作路径默认 /data/hpc/home/&lt;账号&gt;。</p>
+                    </div>
+                    <div class="form-group full">
+                      <div class="field-label-row">
+                        <label for="create-workdir">工作路径 <span class="req">*</span></label>
+                        <button type="button" class="field-help" data-tip="容器内训练进程的工作路径。默认 /data/hpc/home/&lt;当前登录账号&gt;，可按任务修改，平台不限制路径前缀。" aria-label="工作路径说明">?</button>
+                      </div>
+                      <input id="create-workdir" class="mono" placeholder="/data/hpc/home/&lt;username&gt;" spellcheck="false" autocomplete="off" />
+                    </div>
+                    <div class="form-group full">
+                      <div class="field-label-row">
+                        <label>优先级 <span class="req">*</span></label>
+                        <button type="button" class="field-help" data-tip="用于多任务排队时的调度排序：P0 最高、P3 最低。同队列内高优先级任务优先获得资源。" aria-label="优先级说明">?</button>
+                      </div>
+                      <div class="job-priority-options" id="create-priority" role="radiogroup" aria-label="任务优先级">
+                        <label class="job-priority-option" for="create-priority-p0">
+                          <input type="radio" name="create-priority" id="create-priority-p0" value="P0" />
+                          <span class="job-priority-card">
+                            <span class="job-priority-code">P0</span>
+                            <span class="job-priority-label">最高</span>
+                            <span class="job-priority-desc">紧急 / 线上关键</span>
+                          </span>
+                        </label>
+                        <label class="job-priority-option" for="create-priority-p1">
+                          <input type="radio" name="create-priority" id="create-priority-p1" value="P1" />
+                          <span class="job-priority-card">
+                            <span class="job-priority-code">P1</span>
+                            <span class="job-priority-label">高</span>
+                            <span class="job-priority-desc">重要训练</span>
+                          </span>
+                        </label>
+                        <label class="job-priority-option" for="create-priority-p2">
+                          <input type="radio" name="create-priority" id="create-priority-p2" value="P2" checked />
+                          <span class="job-priority-card">
+                            <span class="job-priority-code">P2</span>
+                            <span class="job-priority-label">中</span>
+                            <span class="job-priority-desc">常规任务</span>
+                          </span>
+                        </label>
+                        <label class="job-priority-option" for="create-priority-p3">
+                          <input type="radio" name="create-priority" id="create-priority-p3" value="P3" />
+                          <span class="job-priority-card">
+                            <span class="job-priority-code">P3</span>
+                            <span class="job-priority-label">低</span>
+                            <span class="job-priority-desc">调试 / 可后置</span>
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="tab-panel create-form-section" data-panel="resources" id="create-section-resources" role="region" aria-labelledby="create-section-resources-title">
+                  <div class="form-section-title" id="create-section-resources-title"><span class="num">2</span> 资源规格</div>
+                  <div class="form-grid">
+                    <div class="form-group">
+                      <div class="field-label-row">
+                        <label for="create-team">所属团队 <span class="req">*</span></label>
+                        <button type="button" class="field-help" data-tip="普通用户仅见自己加入的团队；平台管理员可选全部团队" aria-label="所属团队说明">?</button>
+                      </div>
+                      <select id="create-team"></select>
+                    </div>
+                    <div class="form-group">
+                      <div class="field-label-row">
+                        <label for="create-queue">资源队列 <span class="req">*</span></label>
+                        <button type="button" class="field-help" data-tip="展示所选团队关联的资源队列；平台管理员可见该团队全部队列" aria-label="资源队列说明">?</button>
+                      </div>
+                      <select id="create-queue"></select>
+                    </div>
+                  </div>
+                  <div id="create-queue-quota" class="queue-quota-panel"></div>
+                  <div class="create-spec-row">
+                    <div class="form-group">
+                      <label for="create-nodes">节点数 <span class="req">*</span></label>
+                      <input id="create-nodes" type="number" min="1" step="1" placeholder="例如 8" />
+                    </div>
+                    <div class="form-group">
+                      <label for="create-gpus-per-node">每节点 GPU 数 <span class="req">*</span></label>
+                      <input id="create-gpus-per-node" type="number" min="1" max="8" step="1" placeholder="1–8" title="每节点 GPU 数最大为 8" />
+                    </div>
+                    <div class="form-group">
+                      <div class="field-label-row">
+                        <label for="create-gpu-type">GPU 型号</label>
+                        <span class="field-lock-hint" title="由所选队列锁定">锁定</span>
+                        <button type="button" class="field-help" data-tip="随队列锁定，不可随意切换数据中心卡型" aria-label="GPU 型号说明">?</button>
+                      </div>
+                      <select id="create-gpu-type" disabled title="由所选队列决定">
+                        <option value="H100-80G">H100-80G</option>
+                        <option value="H200-141G">H200-141G</option>
+                        <option value="B300">B300</option>
+                        <option value="NVIDIA-GeForce-RTX-4090">NVIDIA-GeForce-RTX-4090</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <div class="field-label-row">
+                        <label for="create-cpu-per-node">每节点 CPU <span class="req">*</span></label>
+                        <button type="button" class="field-help" data-tip="默认按卡型配比（如 H100 为 16 核/卡），可按任务调整。合计核数 = 节点数 × 每节点 CPU，计入队列 CPU 额度。" aria-label="每节点 CPU 说明">?</button>
+                      </div>
+                      <input id="create-cpu-per-node" type="number" min="1" step="1" placeholder="核" />
+                    </div>
+                    <div class="form-group">
+                      <div class="field-label-row">
+                        <label for="create-mem-per-node">每节点内存 <span class="req">*</span></label>
+                        <button type="button" class="field-help" data-tip="默认按卡型配比（如 H100 为 128 GiB/卡），可按任务调整。合计内存 = 节点数 × 每节点内存，计入队列内存额度。" aria-label="每节点内存说明">?</button>
+                      </div>
+                      <input id="create-mem-per-node" type="number" min="1" step="1" placeholder="GiB" />
+                    </div>
+                  </div>
+                  <div class="field-label-row create-res-help-row">
+                    <button type="button" class="btn btn-ghost btn-sm hidden" id="btn-reset-cpu-mem">恢复卡型默认</button>
+                  </div>
+                </div>
+
+                <div class="tab-panel create-form-section" data-panel="launch" id="create-section-launch" role="region" aria-labelledby="create-section-launch-title">
+                  <div class="form-section-title" id="create-section-launch-title"><span class="num">3</span> 镜像与启动</div>
+                  <div class="form-grid">
+                    <div class="form-group full">
+                      <div class="field-label-row">
+                        <label for="create-image">容器镜像 <span class="req">*</span></label>
+                        <button type="button" class="field-help" data-tip="算法同学自行编译并推送到 Harbor 后，在此粘贴完整镜像地址，格式 registry/project/name:tag。平台不提供下拉选择。" aria-label="容器镜像说明">?</button>
+                      </div>
+                      <input id="create-image" type="text" class="mono" placeholder="harbor.msxf.com/ai/your-image:tag" spellcheck="false" autocomplete="off" />
+                    </div>
+                    <div class="form-group full">
+                      <div class="field-label-row">
+                        <label for="create-command">启动命令 <span class="req">*</span></label>
+                        <button type="button" class="field-help" data-tip="填写训练进程入口。可直接引用平台注入的 $MASTER_ADDR、$MASTER_PORT、$WORLD_SIZE、$RANK、$GPU_NUM。数据路径、并行切分等参数写在命令或配置集中。" aria-label="启动命令说明">?</button>
+                      </div>
+                      <div class="code-editor code-editor--field code-editor--cmd">
+                        <pre class="code-editor-hl" id="create-command-hl" aria-hidden="true"></pre>
+                        <textarea id="create-command" class="code-editor-input" placeholder="torchrun --nproc_per_node=$GPU_NUM --nnodes=$WORLD_SIZE ..." spellcheck="false"></textarea>
+                      </div>
+                      <div class="builtin-env-note" id="create-builtin-env">
+                        <div class="builtin-env-note-head">
+                          <div class="builtin-env-note-title">平台内置环境变量</div>
+                          <p class="builtin-env-note-desc">启动前由平台注入，可在启动命令中用 $变量名 引用，不必写进下方用户环境变量。</p>
+                        </div>
+                        <dl class="builtin-env-list">
+                          <div class="builtin-env-item">
+                            <dt class="mono">$MASTER_ADDR</dt>
+                            <dd>PyTorch 训练任务 master 节点地址</dd>
+                          </div>
+                          <div class="builtin-env-item">
+                            <dt class="mono">$MASTER_PORT</dt>
+                            <dd>PyTorch 训练任务 master 节点端口</dd>
+                          </div>
+                          <div class="builtin-env-item">
+                            <dt class="mono">$WORLD_SIZE</dt>
+                            <dd>PyTorch 训练任务总节点数</dd>
+                          </div>
+                          <div class="builtin-env-item">
+                            <dt class="mono">$RANK</dt>
+                            <dd>PyTorch 训练任务节点序号</dd>
+                          </div>
+                          <div class="builtin-env-item">
+                            <dt class="mono">$GPU_NUM</dt>
+                            <dd>PyTorch 训练任务各节点的 GPU 数量</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    </div>
+                    <div class="form-group full">
+                      <div class="field-label-row">
+                        <label for="create-env">环境变量（KEY=VALUE，每行一个）</label>
+                        <button type="button" class="field-help" data-tip="用户自定义变量，每行一个 KEY=VALUE。$MASTER_ADDR、$GPU_NUM 等由平台注入，无需在此重复填写。" aria-label="环境变量说明">?</button>
+                      </div>
+                      <div class="code-editor code-editor--field code-editor--env">
+                        <pre class="code-editor-hl" id="create-env-hl" aria-hidden="true"></pre>
+                        <textarea id="create-env" class="code-editor-input" placeholder="EPOCHS=1000" spellcheck="false"></textarea>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="tab-panel create-form-section" data-panel="configs" id="create-section-configs" role="region" aria-labelledby="create-section-configs-title">
+                  <div class="form-section-title" id="create-section-configs-title"><span class="num">4</span> 配置挂载</div>
+                  <div id="create-config-mounts"></div>
+                  <div id="create-config-hint" class="cfg-mount-hint" hidden></div>
+                  <button type="button" class="cfg-add-mount" id="btn-add-config-mount">
+                    <span class="cfg-add-mount-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 5v14M5 12h14"/>
+                      </svg>
+                    </span>
+                    <span class="cfg-add-mount-copy">
+                      <span class="cfg-add-mount-title">添加配置集</span>
+                      <span class="cfg-add-mount-desc">从配置管理选择一版 YAML，只读挂到容器内指定路径</span>
+                    </span>
+                    <span class="cfg-add-mount-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 18l6-6-6-6"/>
+                      </svg>
+                    </span>
+                  </button>
+                </div>
+
+                <div class="tab-panel create-form-section hidden" data-panel="source" id="rerun-source-section" role="region" aria-labelledby="create-section-source-title">
+                  <div class="form-section-title" id="create-section-source-title"><span class="num">5</span> 原任务信息（只读参考）</div>
+                  <div id="rerun-source-info" class="rerun-source-preview"></div>
+                </div>
+              </div>
+              <div class="create-form-footer">
+                <div class="flex gap-8">
+                  <button class="btn btn-secondary" id="btn-cancel-create">取消</button>
+                  <button class="btn btn-primary btn-lg" id="btn-submit-job">提交训练任务</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Config Set List ===== -->
+        <section class="page" id="page-configs">
+          <div class="page-header">
+            <div>
+              <h1>配置管理</h1>
+              <p class="desc">管理训练超参 YAML / JSON，按版本挂载到任务容器 · 单个文件不超过 50 KB</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary" type="button" id="btn-config-create">+ 新建配置集</button>
+            </div>
+          </div>
+          <div class="toolbar cfg-toolbar">
+            <div class="search-box">
+              <span class="search-icon">⌕</span>
+              <input id="cfg-search" placeholder="搜索配置名称..." />
+            </div>
+            <select class="filter-select" id="cfg-filter-team">
+              <option value="all">全部团队</option>
+            </select>
+            <select class="filter-select" id="cfg-filter-scope">
+              <option value="all">全部范围</option>
+              <option value="mine">我创建的</option>
+              <option value="team">团队共享</option>
+              <option value="private">仅自己可见</option>
+              <option value="draft">有个人草稿</option>
+            </select>
+            <select class="filter-select" id="cfg-filter-status">
+              <option value="all">全部状态</option>
+              <option value="active">使用中</option>
+              <option value="archived">已归档</option>
+            </select>
+            <select class="filter-select" id="cfg-filter-framework">
+              <option value="all">全部框架</option>
+              <option value="megatron">Megatron</option>
+              <option value="nemo">NeMo</option>
+              <option value="accelerate">Accelerate</option>
+              <option value="custom">自定义</option>
+            </select>
+          </div>
+          <div class="card">
+            <div class="card-body flush">
+              <div class="table-wrap">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>配置集</th>
+                      <th>团队</th>
+                      <th>框架</th>
+                      <th>最新版本</th>
+                      <th>文件数</th>
+                      <th>更新时间</th>
+                      <th>创建人</th>
+                      <th class="th-actions">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cfg-tbody"></tbody>
+                </table>
+              </div>
+              <div id="cfg-empty" class="empty-state hidden">
+                还没有配置集。把 Megatron 的 configs/ 做成配置集，提交任务时默认只读挂到 /data/hpc/home/&lt;username&gt;/experiments/&lt;任务名称&gt;/configs/。
+              </div>
+              <div id="cfg-pagination"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Config Set Edit ===== -->
+        <section class="page" id="page-config-edit">
+          <div class="page-header">
+            <div>
+              <h1 id="cfg-edit-title" class="cfg-edit-title">
+                <span id="cfg-edit-title-text">新建配置集</span>
+                <span id="cfg-edit-draft-badge" class="badge badge-warning hidden">个人草稿</span>
+              </h1>
+              <p class="desc" id="cfg-edit-desc">在线编辑多文件 YAML，保存草稿或发布为不可变版本</p>
+            </div>
+          </div>
+          <div id="cfg-edit-draft-banner" class="demo-banner cfg-draft-banner hidden" role="status"></div>
+          <div id="cfg-edit-body"></div>
+        </section>
+
+        <!-- ===== Config Set Detail ===== -->
+        <section class="page" id="page-config-detail">
+          <div class="detail-hero" id="cfg-detail-hero"></div>
+          <div class="card">
+            <div class="tabs" id="cfg-detail-tabs">
+              <div class="tab active" data-tab="files">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                文件
+              </div>
+              <div class="tab" data-tab="history">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                版本历史
+              </div>
+            </div>
+            <div id="cfg-detail-panels">
+              <div class="tab-panel active" data-panel="files" id="panel-cfg-files"></div>
+              <div class="tab-panel" data-panel="history" id="panel-cfg-history"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Queue Management (Admin) ===== -->
+        <section class="page" id="page-queue-mgmt">
+          <div class="page-header">
+            <div>
+              <h1>队列管理</h1>
+              <p class="desc">按数据中心与卡型号配置资源队列 · 可关联多个团队 · 设置功能特性与额度 · 支持启用 / 禁用 / 删除</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary" type="button" id="btn-queue-create">+ 新建队列</button>
+            </div>
+          </div>
+          <div class="toolbar">
+            <div class="search-box">
+              <span class="search-icon">⌕</span>
+              <input id="queue-search" placeholder="搜索队列 / 团队..." />
+            </div>
+            <select class="filter-select" id="queue-filter-dc">
+              <option value="all">全部数据中心</option>
+            </select>
+            <select class="filter-select" id="queue-filter-gpu">
+              <option value="all">全部卡型号</option>
+            </select>
+            <select class="filter-select" id="queue-filter-status" aria-label="按状态筛选">
+              <option value="all">全部状态</option>
+              <option value="open">启用</option>
+              <option value="closed">禁用</option>
+            </select>
+          </div>
+          <div class="card">
+            <div class="card-body flush" id="queue-mgmt-body"></div>
+          </div>
+        </section>
+
+        <!-- ===== User Management (Admin) ===== -->
+        <section class="page" id="page-user-mgmt">
+          <div class="page-header">
+            <div>
+              <h1>用户管理</h1>
+              <p class="desc">平台可用用户 · 从 LDAP 添加后可登录系统 · 可授权角色 · 支持批量启用 / 停用 / 移除 / 角色授权 · 团队归属在「团队管理」中维护</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary" type="button" id="btn-user-add-ldap">+ 从 LDAP 添加</button>
+            </div>
+          </div>
+          <div class="toolbar">
+            <div class="search-box">
+              <span class="search-icon">⌕</span>
+              <input id="user-search" placeholder="搜索姓名 / 账号 / 邮箱 / 部门..." />
+            </div>
+            <select class="filter-select" id="user-filter-team" aria-label="按团队筛选">
+              <option value="all">全部团队</option>
+            </select>
+            <select class="filter-select" id="user-filter-role">
+              <option value="all">全部角色</option>
+              <!-- options filled by app.js from MOCK.roles -->
+            </select>
+            <select class="filter-select" id="user-filter-status">
+              <option value="all">全部状态</option>
+              <option value="active">启用</option>
+              <option value="disabled">停用</option>
+            </select>
+          </div>
+          <div class="card">
+            <div class="node-batch-bar" id="user-mgmt-batch-bar" hidden>
+              <span class="node-batch-count" id="user-mgmt-batch-count">已选 0 人</span>
+              <div class="node-batch-actions">
+                <button type="button" class="btn btn-primary btn-sm" id="btn-user-batch-role">角色授权</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-user-batch-enable">启用</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-user-batch-disable">停用</button>
+                <button type="button" class="btn btn-danger btn-sm" id="btn-user-batch-remove">移除</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-user-batch-clear">取消选择</button>
+              </div>
+            </div>
+            <div class="card-body flush" id="user-mgmt-body"></div>
+          </div>
+        </section>
+
+        <!-- ===== Role Management (Admin) ===== -->
+        <section class="page" id="page-role-mgmt">
+          <div class="page-header">
+            <div>
+              <h1>角色管理</h1>
+              <p class="desc">平台内置角色 · 可改名 · 权限范围决定用户侧栏可见菜单</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body flush" id="role-mgmt-body"></div>
+          </div>
+        </section>
+
+        <!-- ===== System Config (Admin) ===== -->
+        <section class="page" id="page-system-config">
+          <div class="page-header">
+            <div>
+              <h1>系统配置</h1>
+              <p class="desc">平台级配置项（身份认证、后续可扩展通知 / 存储等）</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="tabs" id="sys-config-tabs">
+              <div class="tab active" data-tab="ldap">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                LDAP
+              </div>
+              <!-- 预留：通知 / 存储 / 安全 等 Tab -->
+            </div>
+            <div id="sys-config-panels">
+              <div class="tab-panel active" data-panel="ldap" id="panel-sys-ldap">
+                <div class="sys-config-panel-body">
+                  <div class="grid-2" id="ldap-config-form"></div>
+                  <div class="sys-config-tab-actions" id="ldap-config-actions">
+                    <button class="btn btn-secondary" type="button" id="btn-ldap-test">测试连接</button>
+                    <button class="btn btn-primary" type="button" id="btn-ldap-save">保存配置</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Team Management (Admin) ===== -->
+        <section class="page" id="page-team-mgmt">
+          <div class="page-header">
+            <div>
+              <h1>团队管理</h1>
+              <p class="desc">平台「团队」是虚拟概念，不同于公司组织架构中的团队 · 主要用于资源额度划分与权限管理 · 成员可多对多加入，通过关联队列管理额度</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary" type="button" id="btn-team-create">+ 新建团队</button>
+            </div>
+          </div>
+          <div class="grid-2-1" id="team-mgmt-layout">
+            <div class="card">
+              <div class="card-header">
+                <h3>团队列表</h3>
+                <div class="search-box" style="max-width:220px">
+                  <span class="search-icon">⌕</span>
+                  <input id="team-search" placeholder="搜索团队..." />
+                </div>
+              </div>
+              <div class="card-body flush" id="team-mgmt-list"></div>
+            </div>
+            <div class="card" id="team-mgmt-detail">
+              <div class="card-header"><h3>团队详情</h3></div>
+              <div class="card-body" id="team-mgmt-detail-body">
+                <div class="empty-state">请选择左侧团队</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Job Detail ===== -->
+        <section class="page" id="page-job-detail">
+          <div class="detail-hero" id="job-detail-hero"></div>
+          <div class="card">
+            <div class="tabs" id="job-detail-tabs">
+              <div class="tab active" data-tab="config">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h6M8 9h2"/></svg>
+                配置信息
+              </div>
+              <div class="tab" data-tab="pods">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg>
+                Pod 列表
+              </div>
+              <div class="tab" data-tab="metrics">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16"/><path d="M8 16l3-5 3 3 5-8"/></svg>
+                任务监控
+              </div>
+              <div class="tab" data-tab="alerts">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                关联告警
+                <span class="tab-count" id="job-alert-tab-count">0</span>
+              </div>
+              <div class="tab" data-tab="logsearch">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                日志检索
+              </div>
+            </div>
+            <div id="job-detail-panels">
+              <div class="tab-panel active" data-panel="config" id="panel-config"></div>
+              <div class="tab-panel" data-panel="pods" id="panel-pods"></div>
+              <div class="tab-panel" data-panel="metrics" id="panel-metrics"></div>
+              <div class="tab-panel" data-panel="alerts" id="panel-job-alerts"></div>
+              <div class="tab-panel" data-panel="logsearch" id="panel-logsearch"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Platform ===== -->
+        <section class="page" id="page-platform">
+          <div class="page-header">
+            <div>
+              <h1>平台管理</h1>
+              <p class="desc">镜像、存储、平台组件与基础配置</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="tabs" id="plat-tabs">
+              <div class="tab active" data-tab="images">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                镜像管理
+              </div>
+              <div class="tab" data-tab="storage">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
+                共享存储
+              </div>
+              <div class="tab" data-tab="components">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                平台组件
+              </div>
+              <div class="tab" data-tab="settings">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                系统设置
+              </div>
+            </div>
+            <div id="plat-panels">
+              <div class="tab-panel active" data-panel="images" id="panel-images"></div>
+              <div class="tab-panel" data-panel="storage" id="panel-storage"></div>
+              <div class="tab-panel" data-panel="components" id="panel-components"></div>
+              <div class="tab-panel" data-panel="settings" id="panel-settings"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Datacenter Management (Ops) ===== -->
+        <section class="page" id="page-dc-mgmt">
+          <div class="page-header">
+            <div>
+              <h1>数据中心管理</h1>
+              <p class="desc">维护数据中心标识与元数据 · 供节点 label、队列额度、集群覆盖等业务关联 · 节点未配置时保持未分配 · 节点 label 约定 <span class="mono">maip.io/datacenter</span></p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary" type="button" id="btn-dc-create">+ 新建数据中心</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <h3>数据中心列表</h3>
+            </div>
+            <div class="card-body flush" id="dc-mgmt-body"></div>
+          </div>
+        </section>
+
+        <!-- ===== Cluster Management (Ops) ===== -->
+        <section class="page" id="page-cluster-mgmt">
+          <div class="page-header">
+            <div>
+              <h1>集群管理</h1>
+              <p class="desc">接入与管理 Kubernetes 训练集群 · 多集群对等接入 · 优先单集群多数据中心</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary" type="button" id="btn-cluster-create">+ 接入集群</button>
+            </div>
+          </div>
+          <div class="stats-grid stats-grid-4 fault-kpi-row" id="cluster-mgmt-kpi"></div>
+          <div class="card">
+            <div class="card-header">
+              <h3>集群列表</h3>
+              <span class="text-muted cluster-list-hint" style="font-size:12px" id="cluster-list-hint">Kubeconfig 接入</span>
+            </div>
+            <div class="card-body flush" id="cluster-mgmt-body"></div>
+          </div>
+        </section>
+
+        <!-- ===== Node Management (Ops · K8s + 故障处置) ===== -->
+        <section class="page" id="page-node-mgmt">
+          <div class="page-header">
+            <div>
+              <h1>节点管理</h1>
+              <p class="desc">K8s 节点运维：数据中心 / 标签 / 污点 · 故障隔离与入池 · 支持批量操作</p>
+            </div>
+          </div>
+          <div class="stats-grid stats-grid-5 fault-kpi-row" id="node-mgmt-kpi"></div>
+
+          <div class="card">
+            <div class="tabs" id="node-mgmt-tabs">
+              <div class="tab active" data-tab="nodes">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                节点列表
+              </div>
+              <div class="tab" data-tab="records">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+                维护记录
+              </div>
+            </div>
+            <div id="node-mgmt-panels">
+              <div class="tab-panel active" data-panel="nodes" id="panel-node-mgmt-nodes">
+                <div class="toolbar node-mgmt-toolbar" id="node-mgmt-toolbar">
+                  <div class="search-box">
+                    <span class="search-icon">⌕</span>
+                    <input id="node-mgmt-search" placeholder="搜索节点名称 / IP..." />
+                  </div>
+                  <select class="filter-select" id="node-mgmt-filter-dc">
+                    <option value="all">全部数据中心</option>
+                  </select>
+                  <select class="filter-select" id="node-mgmt-filter-status">
+                    <option value="all">全部状态</option>
+                    <option value="Ready">Ready</option>
+                    <option value="NotReady">NotReady</option>
+                    <option value="SchedulingDisabled">SchedulingDisabled</option>
+                  </select>
+                  <select class="filter-select" id="node-mgmt-filter-gpu">
+                    <option value="all">全部卡型号</option>
+                  </select>
+                </div>
+                <div class="node-batch-bar" id="node-mgmt-batch-bar" hidden>
+                  <span class="node-batch-count" id="node-mgmt-batch-count">已选 0 台</span>
+                  <div class="node-batch-actions">
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-node-batch-dc">数据中心</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-node-batch-labels">标签</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-node-batch-taints">污点</button>
+                    <button type="button" class="btn btn-danger btn-sm" id="btn-node-batch-iso">隔离</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-node-batch-rec">入池</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btn-node-batch-clear">取消选择</button>
+                  </div>
+                </div>
+                <div class="card-body flush" id="node-mgmt-body"></div>
+              </div>
+              <div class="tab-panel" data-panel="records" id="panel-node-mgmt-records">
+                <div class="toolbar node-mgmt-toolbar" id="node-mgmt-records-toolbar"></div>
+                <div class="card-body flush" id="node-mgmt-records-list"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Alerts ===== -->
+        <section class="page" id="page-alerts">
+          <div class="page-header">
+            <div>
+              <h1>告警中心</h1>
+              <p class="desc" id="alerts-page-desc">来自 DCGM / IB Exporter / k8s events / Volcano · 最近 24 小时 · 支持批量处理</p>
+            </div>
+</div>
+
+          <!-- 概览 KPI -->
+          <div class="alert-kpi-row" id="alert-kpi-row"></div>
+
+          <!-- 筛选栏：级别 / 状态 / 时间 / 搜索 -->
+          <div class="alert-filter-bar" id="alert-filter-bar">
+            <div class="alert-filter-group">
+              <span class="alert-filter-label">级别</span>
+              <div class="alert-chip-group" id="alert-sev-chips"></div>
+            </div>
+            <div class="alert-filter-group">
+              <span class="alert-filter-label">状态</span>
+              <div class="alert-chip-group" id="alert-status-chips"></div>
+            </div>
+            <div class="alert-filter-group">
+              <span class="alert-filter-label">时间</span>
+              <div class="alert-chip-group" id="alert-time-chips"></div>
+            </div>
+            <div class="alert-filter-search">
+              <div class="search-box" style="max-width:none;flex:1">
+                <span class="search-icon">⌕</span>
+                <input id="alert-search" placeholder="按标题 / 任务 / 指标搜索..." />
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="node-batch-bar" id="alerts-batch-bar" hidden>
+              <span class="node-batch-count" id="alerts-batch-count">已选 0 条</span>
+              <div class="node-batch-actions">
+                <button type="button" class="btn btn-primary btn-sm" id="btn-alert-batch-handle">处理告警</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-alert-batch-clear">取消选择</button>
+              </div>
+            </div>
+            <div class="alerts-list-head">
+              <label class="alerts-check-all">
+                <input type="checkbox" id="alerts-check-all" title="全选当前页" />
+                <span>全选当前页</span>
+              </label>
+            </div>
+            <div class="card-body flush" id="alerts-list"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- 节点隔离 / 入池确认 -->
+  <div class="modal-overlay" id="modal-maint-action" role="dialog" aria-modal="true" aria-labelledby="modal-maint-title">
+    <div class="modal modal-maint">
+      <div class="modal-header">
+        <h3 id="modal-maint-title">确认维护</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-maint-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-maint-msg" id="modal-maint-msg"></p>
+        <p class="modal-maint-node mono" id="modal-maint-node"></p>
+        <p class="modal-maint-hint" id="modal-maint-hint"></p>
+        <div class="form-group">
+          <label for="modal-maint-remark">备注 <span class="text-muted" style="font-weight:400">（可选）</span></label>
+          <textarea id="modal-maint-remark" rows="3" placeholder="填写维护说明，将记入维护记录…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-maint-cancel">取消</button>
+        <button type="button" class="btn btn-danger" id="modal-maint-confirm">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 切换工作集群二次确认 -->
+  <div class="modal-overlay" id="modal-cluster-switch" role="dialog" aria-modal="true" aria-labelledby="modal-cluster-switch-title">
+    <div class="modal modal-confirm modal-cluster-switch" style="max-width:500px">
+      <div class="modal-header">
+        <h3 id="modal-cluster-switch-title">切换工作集群</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-cluster-switch-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-msg cluster-switch-lead">
+          确定将<strong>工作集群</strong>从
+          <strong id="modal-cluster-switch-from"></strong>
+          切换为
+          <strong id="modal-cluster-switch-to"></strong>
+          吗？
+        </p>
+        <p class="modal-meta" id="modal-cluster-switch-meta"></p>
+        <div class="cluster-switch-impact" id="modal-cluster-switch-impact">
+          <div class="cluster-switch-impact-title">切换后将整体切换以下数据视图</div>
+          <ul class="cluster-switch-impact-list">
+            <li>集群概览 · 节点管理 · 数据中心资源</li>
+            <li>队列管理 · 告警中心（按工作集群过滤）</li>
+            <li>未保存的筛选条件可能被重置</li>
+          </ul>
+        </div>
+        <p class="modal-hint">
+          平台中心（用户 / 角色 / 系统配置）、「集群管理」、「数据中心管理」与「配置管理」不受工作集群影响。
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-cluster-switch-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="modal-cluster-switch-confirm">确认切换并刷新</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 退出登录二次确认 -->
+  <div class="modal-overlay" id="modal-logout" role="dialog" aria-modal="true" aria-labelledby="modal-logout-title">
+    <div class="modal modal-confirm">
+      <div class="modal-header">
+        <h3 id="modal-logout-title">确认退出登录</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-logout-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-msg">
+          确定要退出当前账号
+          <strong id="modal-logout-name"></strong>
+          吗？
+        </p>
+        <p class="modal-meta" id="modal-logout-meta"></p>
+        <p class="modal-hint is-warning">
+          退出后需重新登录才能使用训练平台。未保存的页面状态将丢失。
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-logout-cancel">取消</button>
+        <button type="button" class="btn btn-danger" id="modal-logout-confirm">确认退出</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 用户启用 / 停用 / 移除二次确认 -->
+  <div class="modal-overlay" id="modal-user-action" role="dialog" aria-modal="true" aria-labelledby="modal-user-action-title">
+    <div class="modal modal-user-action">
+      <div class="modal-header">
+        <h3 id="modal-user-action-title">确认操作</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-user-action-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="user-action-msg" id="modal-user-action-msg"></p>
+        <div class="user-action-target" id="modal-user-action-target" aria-live="polite"></div>
+        <p class="user-action-skip" id="modal-user-action-skip" hidden></p>
+        <p class="user-action-hint" id="modal-user-action-hint"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-user-action-cancel">取消</button>
+        <button type="button" class="btn btn-danger" id="modal-user-action-confirm">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 集群删除二次确认 -->
+  <div class="modal-overlay" id="modal-cluster-action" role="dialog" aria-modal="true" aria-labelledby="modal-cluster-action-title">
+    <div class="modal modal-confirm">
+      <div class="modal-header">
+        <h3 id="modal-cluster-action-title">确认删除集群</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-cluster-action-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-msg" id="modal-cluster-action-msg"></p>
+        <p class="modal-hint is-danger" id="modal-cluster-action-hint"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-cluster-action-cancel">取消</button>
+        <button type="button" class="btn btn-danger" id="modal-cluster-action-confirm">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 队列启用 / 禁用 / 删除二次确认 -->
+  <div class="modal-overlay" id="modal-queue-action" role="dialog" aria-modal="true" aria-labelledby="modal-queue-action-title">
+    <div class="modal modal-confirm">
+      <div class="modal-header">
+        <h3 id="modal-queue-action-title">确认操作</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-queue-action-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-msg" id="modal-queue-action-msg"></p>
+        <p class="modal-meta" id="modal-queue-action-meta"></p>
+        <p class="modal-hint" id="modal-queue-action-hint"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-queue-action-cancel">取消</button>
+        <button type="button" class="btn btn-danger" id="modal-queue-action-confirm">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 停止任务二次确认 -->
+  <div class="modal-overlay" id="modal-stop-job" role="dialog" aria-modal="true" aria-labelledby="modal-stop-title">
+    <div class="modal modal-confirm">
+      <div class="modal-header">
+        <h3 id="modal-stop-title">确认停止任务</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-stop-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-msg">
+          确定要停止任务
+          <strong id="modal-stop-job-name"></strong>
+          吗？
+        </p>
+        <p class="modal-meta" id="modal-stop-job-id"></p>
+        <p class="modal-hint is-danger">
+          停止后训练进程将被终止，已占用 GPU 资源将释放。未落盘的进度可能丢失，此操作不可撤销。
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-stop-cancel">取消</button>
+        <button type="button" class="btn btn-danger" id="modal-stop-confirm">确认停止</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 实验项目：新建 / 编辑 -->
+  <div class="modal-overlay" id="modal-proj" role="dialog" aria-modal="true" aria-labelledby="modal-proj-title">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header">
+        <h3 id="modal-proj-title">新建项目</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-proj-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-lead">
+          项目用于归类训练实验（Run）。建议与 TensorBoard logdir 树中的项目目录名一致，例如
+          <code>.../experiments/{project}/{run}/</code> 或任务输出下的 <code>tensorboard/</code>。
+        </p>
+        <div class="form-group">
+          <div class="field-label-row">
+            <label for="proj-form-name">项目名称 <span class="req">*</span></label>
+            <button type="button" class="field-help" data-tip="全局唯一；创建后名称只读，建议与 logdir 项目目录名保持一致" aria-label="项目名称说明">?</button>
+          </div>
+          <input id="proj-form-name" type="text" placeholder="例如 slm-7b-pretrain（建议英文/数字/中划线）" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label for="proj-form-desc">描述 <span class="text-muted" style="font-weight:400">（可选）</span></label>
+          <textarea id="proj-form-desc" rows="3" placeholder="简要说明项目目标，如：7B 预训练主线" style="min-height:72px;width:100%;resize:vertical"></textarea>
+        </div>
+        <div id="proj-form-error" class="login-error hidden" style="margin-top:4px" role="alert"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-proj-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="modal-proj-confirm">创建项目</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 实验项目：归档确认 -->
+  <div class="modal-overlay" id="modal-proj-archive" role="dialog" aria-modal="true" aria-labelledby="modal-proj-archive-title">
+    <div class="modal modal-confirm">
+      <div class="modal-header">
+        <h3 id="modal-proj-archive-title">归档项目</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-proj-archive-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-msg">
+          确定归档项目 <strong id="modal-proj-archive-name"></strong> 吗？
+        </p>
+        <p class="modal-hint is-warning">
+          归档后项目将从侧栏主列表隐藏，历史实验 Run 与指标数据仍保留，可从「已归档项目」恢复。不会删除关联训练任务。
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-proj-archive-cancel">取消</button>
+        <button type="button" class="btn btn-danger" id="modal-proj-archive-confirm">确认归档</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 已归档项目列表 -->
+  <div class="modal-overlay" id="modal-proj-archived-list" role="dialog" aria-modal="true" aria-labelledby="modal-proj-archived-title">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-header">
+        <h3 id="modal-proj-archived-title">已归档项目</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-proj-archived-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body flush" id="modal-proj-archived-body" style="padding:0;max-height:420px;overflow-y:auto"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-proj-archived-cancel">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新建 / 编辑数据中心 -->
+  <div class="modal-overlay" id="modal-dc" role="dialog" aria-modal="true" aria-labelledby="modal-dc-title">
+    <div class="modal" style="max-width:560px">
+      <div class="modal-header">
+        <h3 id="modal-dc-title">新建数据中心</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-dc-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-lead">
+          数据中心标识将作为节点 Label 值（<span class="mono">maip.io/datacenter=&lt;标识&gt;</span>），并被队列、节点、集群等模块引用。创建后标识不可修改。节点未设置数据中心时保持未分配，不会自动归属任何数据中心。
+        </p>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="dc-form-id">数据中心标识 <span class="req">*</span></label>
+            <input id="dc-form-id" type="text" class="mono" placeholder="例如 cq-lj、xj-js" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="dc-form-name">显示名称 <span class="req">*</span></label>
+            <input id="dc-form-name" type="text" placeholder="例如 重庆两江" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="dc-form-short">简称 <span class="req">*</span></label>
+            <input id="dc-form-short" type="text" placeholder="例如 两江（列表角标）" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="dc-form-region">区域</label>
+            <input id="dc-form-region" type="text" placeholder="例如 重庆 / 新疆" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="dc-form-label-key">Label Key</label>
+            <input id="dc-form-label-key" type="text" class="mono" value="maip.io/datacenter" readonly tabindex="-1" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="dc-form-color-text">展示色</label>
+            <div class="dc-color-row" id="dc-color-picker">
+              <button type="button" class="dc-color-swatch" id="dc-form-color-swatch" title="换一个颜色" aria-label="换一个颜色">
+                <svg class="dc-color-swatch-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                  <path fill="currentColor" d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z"/>
+                </svg>
+              </button>
+              <input type="hidden" id="dc-form-color" value="#3b82f6" />
+              <div class="dc-color-input-wrap">
+                <input id="dc-form-color-text" type="text" class="mono" placeholder="#3b82f6" maxlength="7" autocomplete="off" spellcheck="false" aria-autocomplete="list" aria-expanded="false" aria-controls="dc-form-color-palette" aria-haspopup="listbox" title="点击选择常用颜色，或输入色值" />
+              </div>
+              <div class="dc-color-palette" id="dc-form-color-palette" hidden>
+                <div class="dc-color-palette-title">常用颜色</div>
+                <div class="dc-color-palette-grid" id="dc-form-color-grid" role="listbox" aria-label="常用颜色"></div>
+                <div class="dc-color-palette-hint">也可直接输入 6 位色值，如 #3b82f6</div>
+              </div>
+            </div>
+          </div>
+          <div class="form-group full">
+            <label>Label 预览</label>
+            <div class="mono text-muted" id="dc-form-label-preview" style="font-size:12.5px;padding:8px 10px;background:var(--bg-2);border:1px solid var(--border);border-radius:8px">maip.io/datacenter=</div>
+          </div>
+          <div class="form-group full">
+            <label for="dc-form-desc">说明</label>
+            <textarea id="dc-form-desc" rows="2" placeholder="数据中心用途、网络与存储说明（可选）" style="min-height:64px;width:100%;resize:vertical"></textarea>
+          </div>
+          <div class="form-group full">
+            <p class="text-muted" id="dc-form-error" style="font-size:12.5px;color:var(--danger);margin:0;display:none"></p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-dc-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="modal-dc-confirm">创建数据中心</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 数据中心操作确认（删除） -->
+  <div class="modal-overlay" id="modal-dc-action" role="dialog" aria-modal="true" aria-labelledby="modal-dc-action-title">
+    <div class="modal modal-confirm">
+      <div class="modal-header">
+        <h3 id="modal-dc-action-title">确认操作</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-dc-action-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-msg" id="modal-dc-action-msg"></p>
+        <p class="modal-meta" id="modal-dc-action-meta"></p>
+        <p class="modal-hint" id="modal-dc-action-hint"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-dc-action-cancel">取消</button>
+        <button type="button" class="btn btn-danger" id="modal-dc-action-confirm">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 接入 / 编辑集群 -->
+  <div class="modal-overlay" id="modal-cluster" role="dialog" aria-modal="true" aria-labelledby="modal-cluster-title">
+    <div class="modal" style="max-width:560px">
+      <div class="modal-header">
+        <h3 id="modal-cluster-title">接入集群</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-cluster-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-lead">
+          通过 Kubeconfig 接入 Kubernetes 集群。API Server 地址与 Kubernetes 版本在连通后自动识别。多集群对等接入，无主/次角色；优先以单集群覆盖多数据中心。
+        </p>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label for="cls-form-display">显示名称 <span class="req">*</span></label>
+            <input id="cls-form-display" type="text" placeholder="例如 训练集群 · 重庆" autocomplete="off" />
+          </div>
+          <div class="form-group full">
+            <label for="cls-form-desc">说明</label>
+            <textarea id="cls-form-desc" rows="2" placeholder="集群用途、数据中心覆盖等（可选）" style="min-height:64px;width:100%;resize:vertical"></textarea>
+          </div>
+          <div class="form-group full">
+            <label for="cls-form-kubeconfig">Kubeconfig <span class="req" id="cls-form-kubeconfig-req">*</span></label>
+            <textarea id="cls-form-kubeconfig" rows="8" placeholder="粘贴完整 kubeconfig YAML…" class="mono cls-form-kubeconfig"></textarea>
+            <p class="hint" id="cls-form-kubeconfig-hint">仅支持 Kubeconfig 接入。连通成功后自动识别 API Server 与 Kubernetes 版本。</p>
+          </div>
+          <div class="form-group full">
+            <p class="text-muted" id="cls-form-error" style="font-size:12.5px;color:var(--danger);margin:0;display:none"></p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-cluster-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="modal-cluster-confirm">接入集群</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 集群详情 -->
+  <div class="modal-overlay" id="modal-cluster-detail" role="dialog" aria-modal="true" aria-labelledby="modal-cluster-detail-title">
+    <div class="modal" style="max-width:640px">
+      <div class="modal-header">
+        <h3 id="modal-cluster-detail-title">集群详情</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-cluster-detail-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body" id="modal-cluster-detail-body"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-cluster-detail-cancel">关闭</button>
+        <button type="button" class="btn btn-primary" id="modal-cluster-detail-nodes">查看节点</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 节点详情 -->
+  <div class="modal-overlay" id="modal-node-detail" role="dialog" aria-modal="true" aria-labelledby="modal-node-detail-title">
+    <div class="modal modal-node-detail">
+      <div class="modal-header">
+        <h3 id="modal-node-detail-title">节点详情</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-node-detail-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body" id="modal-node-detail-body"></div>
+      <div class="modal-footer">
+        <div class="modal-footer-left">
+          <button type="button" class="btn btn-danger btn-sm" id="modal-node-detail-isolate">隔离</button>
+          <button type="button" class="btn btn-primary btn-sm" id="modal-node-detail-recover">入池</button>
+        </div>
+        <div class="modal-footer-right">
+          <button type="button" class="btn btn-secondary" id="modal-node-detail-cancel">关闭</button>
+          <button type="button" class="btn btn-primary" id="modal-node-detail-labels">管理标签</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 批量 / 单个设置节点数据中心 -->
+  <div class="modal-overlay" id="modal-node-dc" role="dialog" aria-modal="true" aria-labelledby="modal-node-dc-title">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header">
+        <h3 id="modal-node-dc-title">设置数据中心</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-node-dc-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-lead">
+          新接入节点通常尚未标记数据中心。设置后将写入节点 label <span class="mono">maip.io/datacenter</span>，供队列调度与资源归属使用。
+        </p>
+        <div class="form-group" style="margin-bottom:14px">
+          <label>目标节点 <span class="text-muted" style="font-weight:400" id="node-dc-form-count"></span></label>
+          <div class="node-dc-target-list" id="node-dc-form-targets"></div>
+        </div>
+        <div class="form-group">
+          <label for="node-dc-form-select">数据中心 <span class="req">*</span></label>
+          <select id="node-dc-form-select" class="filter-select" style="width:100%;max-width:none"></select>
+        </div>
+        <p class="text-muted" id="node-dc-form-error" style="font-size:12.5px;color:var(--danger);margin:10px 0 0;display:none"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-node-dc-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="modal-node-dc-confirm">确认设置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 节点标签管理（单个替换 / 批量合并） -->
+  <div class="modal-overlay" id="modal-node-labels" role="dialog" aria-modal="true" aria-labelledby="modal-node-labels-title">
+    <div class="modal modal-node-editor">
+      <div class="modal-header">
+        <h3 id="modal-node-labels-title">标签管理</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-node-labels-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted node-batch-modal-hint" id="node-labels-batch-hint" hidden></p>
+        <div class="node-dc-target-list" id="node-labels-batch-targets" hidden></div>
+        <div id="node-labels-editor" class="node-labels-editor"></div>
+        <div class="node-label-add-row">
+          <input id="node-label-key" type="text" placeholder="key，如 maip.io/pool" autocomplete="off" spellcheck="false" maxlength="317" aria-label="标签 key" />
+          <input id="node-label-value" type="text" placeholder="value（可空）" autocomplete="off" spellcheck="false" maxlength="63" aria-label="标签 value" />
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-node-label-add">添加</button>
+        </div>
+        <div class="node-editor-rule">
+          <p class="node-editor-hint">须符合 Kubernetes Label 规范：key 为 [DNS 前缀/]名称，value 可为空。</p>
+          <button type="button" class="field-help" data-tip="key 可选前缀（小写 DNS 子域名，最长 253 字符）+ '/' + 名称。名称与 value 最长 63 字符，只能包含字母、数字、-、_、.，且必须以字母或数字开头和结尾。value 允许空字符串。整段 key 最多一个 '/'，不能写成 a/b/c。" aria-label="标签格式说明">?</button>
+        </div>
+        <p class="node-editor-error" id="node-labels-error" style="display:none"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-node-labels-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="modal-node-labels-confirm">保存标签</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 节点污点管理（单个替换 / 批量合并） -->
+  <div class="modal-overlay" id="modal-node-taints" role="dialog" aria-modal="true" aria-labelledby="modal-node-taints-title">
+    <div class="modal modal-node-editor">
+      <div class="modal-header">
+        <h3 id="modal-node-taints-title">污点管理</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-node-taints-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted node-batch-modal-hint" id="node-taints-batch-hint" hidden></p>
+        <div class="node-dc-target-list" id="node-taints-batch-targets" hidden></div>
+        <div id="node-taints-editor" class="node-taints-editor"></div>
+        <div class="node-taint-add-row">
+          <input id="node-taint-key" type="text" placeholder="key，如 maip.io/dedicated" autocomplete="off" spellcheck="false" maxlength="317" aria-label="污点 key" />
+          <input id="node-taint-value" type="text" placeholder="value（可空）" autocomplete="off" spellcheck="false" maxlength="63" aria-label="污点 value" />
+          <select id="node-taint-effect" class="filter-select" aria-label="污点 effect">
+            <option value="NoSchedule">NoSchedule</option>
+            <option value="PreferNoSchedule">PreferNoSchedule</option>
+            <option value="NoExecute">NoExecute</option>
+          </select>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-node-taint-add">添加</button>
+        </div>
+        <div class="node-editor-rule">
+          <p class="node-editor-hint">须符合 Kubernetes Taint 规范：key / value 规则同 Label；effect 仅为 NoSchedule、PreferNoSchedule、NoExecute。</p>
+          <button type="button" class="field-help" data-tip="污点 key 规则与 Label key 相同（可选小写 DNS 前缀 + 名称）。value 可为空，非空时最长 63 字符，由字母、数字、'-'、'_'、'.' 组成，且以字母或数字开头结尾。effect 仅支持 NoSchedule、PreferNoSchedule、NoExecute。同一节点上相同 key + effect 不可重复。" aria-label="污点格式说明">?</button>
+        </div>
+        <p class="node-editor-error" id="node-taints-error" style="display:none"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-node-taints-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="modal-node-taints-confirm">保存污点</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新建 / 编辑资源队列 -->
+  <div class="modal-overlay" id="modal-queue" role="dialog" aria-modal="true" aria-labelledby="modal-queue-title">
+    <div class="modal modal-queue-form">
+      <div class="modal-header">
+        <h3 id="modal-queue-title">新建队列</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-queue-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-lead text-muted">
+          逻辑队列将同步创建底层 Volcano Queue。先选定数据中心与功能特性，再按特性筛选可用 GPU 型号并配置额度。
+        </p>
+        <div class="form-grid">
+          <div class="form-group">
+            <div class="field-label-row">
+              <label for="q-form-name">队列标识 <span class="req">*</span></label>
+              <button type="button" class="field-help" data-tip="将作为底层 Volcano Queue 的 Kubernetes 资源名（RFC 1123 DNS 子域名）。只能包含小写字母、数字、'-' 与 '.'，必须以字母或数字开头和结尾，最长 253 字符。创建后不可修改。" aria-label="队列标识命名规范">?</button>
+            </div>
+            <input id="q-form-name" type="text" class="mono" placeholder="例如 slm-jiangsu-h100" autocomplete="off" spellcheck="false" maxlength="253" />
+            <p class="field-inline-error" id="q-form-name-error" hidden></p>
+          </div>
+          <div class="form-group">
+            <label for="q-form-display">显示名称 <span class="req">*</span></label>
+            <input id="q-form-display" type="text" placeholder="例如 SLM · 疆算 H100" autocomplete="off" />
+          </div>
+          <div class="form-group full">
+            <div class="field-label-row">
+              <label for="q-form-team-search">关联团队</label>
+              <button type="button" class="field-help" data-tip="非必填。一个队列可关联多个团队；关联后这些团队的成员提交任务时可选择该队列。未关联时不会出现在任务提交列表中，也可稍后在团队管理中补齐。" aria-label="关联团队说明">?</button>
+            </div>
+            <div class="user-picker" id="q-team-picker">
+              <div class="user-picker-control">
+                <span class="user-picker-icon" aria-hidden="true"></span>
+                <input
+                  id="q-form-team-search"
+                  type="text"
+                  placeholder="搜索并添加团队..."
+                  autocomplete="off"
+                  aria-autocomplete="list"
+                  aria-controls="q-team-results"
+                />
+              </div>
+              <div class="queue-team-chips hidden" id="q-team-selected"></div>
+              <div class="user-picker-dropdown hidden" id="q-team-results" role="listbox"></div>
+            </div>
+          </div>
+
+          <div class="form-group full">
+            <div class="queue-form-section-label">资源筛选</div>
+          </div>
+          <div class="form-group full">
+            <label for="q-form-dc">数据中心 <span class="req">*</span></label>
+            <select id="q-form-dc"></select>
+          </div>
+          <div class="form-group full">
+            <div class="field-label-row">
+              <label>功能特性</label>
+              <button type="button" class="field-help" data-tip="功能特性用于前置过滤 GPU 型号，并写入队列配置。未选时展示该数据中心全部型号。" aria-label="功能特性说明">?</button>
+            </div>
+            <div class="queue-feature-filter" id="q-form-features" role="group" aria-label="功能特性">
+              <label class="checkbox-inline queue-feature-option" for="q-form-feat-ib">
+                <input type="checkbox" id="q-form-feat-ib" value="ib" data-feature="ib" />
+                <span class="queue-feature-check-text">
+                  <span class="queue-feature-check-title">支持 IB</span>
+                  <span class="queue-feature-check-desc">InfiniBand · 多机 RDMA · 过滤具备 IB 的卡型号</span>
+                </span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group full">
+            <label for="q-form-gpu">GPU 型号 <span class="req">*</span></label>
+            <select id="q-form-gpu"></select>
+            <p class="queue-gpu-filter-hint text-muted" id="q-form-gpu-hint" aria-live="polite"></p>
+          </div>
+          <div class="form-group full">
+            <div id="q-form-capacity-hint" class="queue-capacity-hint" aria-live="polite"></div>
+          </div>
+
+          <div class="form-group full">
+            <div class="queue-form-section-label">额度配置</div>
+          </div>
+          <div class="form-grid cols-3 full queue-quota-row">
+            <div class="form-group">
+              <label for="q-form-gpu-quota">GPU 卡额度 <span class="req">*</span></label>
+              <input id="q-form-gpu-quota" type="number" min="1" placeholder="例如 256" />
+            </div>
+            <div class="form-group">
+              <label for="q-form-cpu">CPU 核额度</label>
+              <input id="q-form-cpu" type="number" min="0" placeholder="例如 4096" />
+            </div>
+            <div class="form-group">
+              <label for="q-form-mem">内存额度 (Gi)</label>
+              <input id="q-form-mem" type="number" min="0" placeholder="例如 32768" />
+            </div>
+          </div>
+          <div class="form-group full">
+            <label for="q-form-desc">描述</label>
+            <textarea id="q-form-desc" rows="2" placeholder="额度说明，如：SLM 团队疆算 32×H100" style="min-height:56px;width:100%;resize:vertical"></textarea>
+          </div>
+        </div>
+        <div id="q-form-error" class="login-error hidden" style="margin-top:8px" role="alert"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-queue-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="modal-queue-confirm">创建队列</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新建团队 -->
+  <div class="modal-overlay" id="modal-team" role="dialog" aria-modal="true" aria-labelledby="modal-team-title">
+    <div class="modal modal-team-create">
+      <div class="modal-header">
+        <h3 id="modal-team-title">新建团队</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-team-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-lead text-muted" id="team-form-lead">
+          创建后可在详情中添加成员、关联资源队列。负责人和成员须从<strong>平台可用用户</strong>中选择。
+        </p>
+        <div class="form-group">
+          <label for="team-form-name">团队名称 <span class="req">*</span></label>
+          <input id="team-form-name" type="text" placeholder="例如 SLM预训练" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label for="team-form-desc">描述 <span class="text-muted" style="font-weight:400">（可选）</span></label>
+          <textarea id="team-form-desc" rows="2" placeholder="团队目标与资源范围，如：小模型预训练主线" style="min-height:72px;width:100%;resize:vertical"></textarea>
+        </div>
+        <div class="form-group">
+          <div class="field-label-row">
+            <label for="team-form-owner-search">负责人 <span class="req">*</span></label>
+            <button type="button" class="field-help" data-tip="仅可选择状态为「启用」的平台用户" aria-label="负责人说明">?</button>
+          </div>
+          <div class="user-picker" id="team-owner-picker">
+            <div class="user-picker-control">
+              <span class="user-picker-icon" aria-hidden="true"></span>
+              <input
+                id="team-form-owner-search"
+                type="text"
+                placeholder="搜索姓名 / 账号 / 邮箱..."
+                autocomplete="off"
+                aria-autocomplete="list"
+                aria-controls="team-owner-results"
+              />
+              <button type="button" class="user-picker-clear hidden" id="team-owner-clear" title="清除">✕</button>
+            </div>
+            <input type="hidden" id="team-form-owner" value="" />
+            <div class="user-picker-selected hidden" id="team-owner-selected"></div>
+            <div class="user-picker-dropdown hidden" id="team-owner-results" role="listbox"></div>
+          </div>
+        </div>
+        <div id="team-form-error" class="login-error hidden" style="margin-top:4px" role="alert"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-team-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="modal-team-confirm">创建团队</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 团队：添加成员 -->
+  <div class="modal-overlay" id="modal-team-member" role="dialog" aria-modal="true" aria-labelledby="modal-team-member-title">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header">
+        <h3 id="modal-team-member-title">添加成员</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-team-member-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="team-member-search">从 LDAP 选择用户</label>
+          <input id="team-member-search" type="text" placeholder="搜索姓名 / 账号..." autocomplete="off" />
+        </div>
+        <div id="team-member-results" class="rp-member-results"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-team-member-cancel">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 从 LDAP 添加平台用户 -->
+  <div class="modal-overlay" id="modal-user-ldap" role="dialog" aria-modal="true" aria-labelledby="modal-user-ldap-title">
+    <div class="modal" style="max-width:640px">
+      <div class="modal-header">
+        <h3 id="modal-user-ldap-title">从 LDAP 添加用户</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-user-ldap-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-lead">
+          按当前 LDAP 配置检索公司目录，勾选后加入<strong>平台可用用户</strong>列表，并指定统一角色权限。已在列表中的用户不会重复添加。
+        </p>
+        <div class="form-group" style="margin-bottom:12px">
+          <label for="ldap-user-role">角色权限 <span class="req">*</span></label>
+          <select id="ldap-user-role" class="filter-select" style="width:100%;max-width:none">
+            <!-- options filled by app.js from MOCK.roles -->
+          </select>
+          <p class="text-muted" style="font-size:11.5px;margin:6px 0 0;line-height:1.5" id="ldap-user-role-hint"></p>
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label for="ldap-user-search">检索 LDAP</label>
+          <div class="search-box" style="max-width:none">
+            <span class="search-icon">⌕</span>
+            <input id="ldap-user-search" type="text" placeholder="姓名 / 账号 / 邮箱 / 部门..." autocomplete="off" />
+          </div>
+        </div>
+        <div id="ldap-user-results" class="ldap-user-results"></div>
+        <div id="ldap-user-add-error" class="login-error hidden" style="margin-top:8px" role="alert"></div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <span class="text-muted" style="font-size:12px" id="ldap-user-selected-hint">已选 0 人</span>
+        <div class="flex gap-8">
+          <button type="button" class="btn btn-secondary" id="modal-user-ldap-cancel">取消</button>
+          <button type="button" class="btn btn-primary" id="modal-user-ldap-confirm">添加所选用户</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 用户角色授权 -->
+  <div class="modal-overlay" id="modal-user-role" role="dialog" aria-modal="true" aria-labelledby="modal-user-role-title">
+    <div class="modal modal-user-role">
+      <div class="modal-header">
+        <h3 id="modal-user-role-title">角色授权</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-user-role-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-lead text-muted">
+          为用户指定平台角色，决定登录后可见的侧栏菜单范围。
+        </p>
+        <div class="user-role-target" id="modal-user-role-target" aria-live="polite">
+          <div class="user-role-target-avatar" id="modal-user-role-avatar">—</div>
+          <div class="user-role-target-meta">
+            <div class="user-role-target-name" id="modal-user-role-name">—</div>
+            <div class="user-role-target-sub" id="modal-user-role-meta">—</div>
+            <div class="user-role-target-current" id="modal-user-role-current"></div>
+          </div>
+        </div>
+        <div class="form-group user-role-pick-group">
+          <label class="user-role-pick-label">选择角色 <span class="req">*</span></label>
+          <div id="modal-user-role-options" class="role-option-list" role="radiogroup" aria-label="平台角色"></div>
+        </div>
+        <div id="modal-user-role-error" class="login-error hidden" role="alert"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-user-role-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="modal-user-role-confirm">保存授权</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 角色改名 -->
+  <div class="modal-overlay" id="modal-role-rename" role="dialog" aria-modal="true" aria-labelledby="modal-role-rename-title">
+    <div class="modal" style="max-width:440px">
+      <div class="modal-header">
+        <h3 id="modal-role-rename-title">角色改名</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-role-rename-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-lead">
+          修改角色显示名称，不影响已分配用户的权限范围。
+        </p>
+        <div class="form-group">
+          <label for="role-rename-name">角色名称 <span class="req">*</span></label>
+          <input id="role-rename-name" type="text" maxlength="32" placeholder="例如 算法工程师" autocomplete="off" />
+        </div>
+        <div id="modal-role-rename-error" class="login-error hidden" style="margin-top:4px" role="alert"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-role-rename-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="modal-role-rename-confirm">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 团队：关联队列 -->
+  <div class="modal-overlay" id="modal-team-queue" role="dialog" aria-modal="true" aria-labelledby="modal-team-queue-title">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-header">
+        <h3 id="modal-team-queue-title">关联队列</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-team-queue-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-lead">勾选要授权给本团队的资源队列（可多选数据中心额度）。</p>
+        <div id="team-queue-checklist" class="rp-queue-checklist"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-team-queue-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="modal-team-queue-confirm">保存关联</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 告警详情 -->
+  <div class="modal-overlay" id="modal-alert-detail" role="dialog" aria-modal="true" aria-labelledby="modal-alert-detail-title">
+    <div class="modal modal-alert-detail">
+      <div class="modal-header">
+        <h3 id="modal-alert-detail-title">告警详情</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-alert-detail-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body" id="modal-alert-detail-body"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-alert-detail-cancel">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 告警关联任务 -->
+  <div class="modal-overlay" id="modal-alert-jobs" role="dialog" aria-modal="true" aria-labelledby="modal-alert-jobs-title">
+    <div class="modal modal-alert-jobs">
+      <div class="modal-header">
+        <h3 id="modal-alert-jobs-title">关联任务</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-alert-jobs-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="alert-jobs-hint" id="modal-alert-jobs-hint">该告警可能关联多个训练任务，点击任务将在新窗口打开详情。</p>
+        <div id="modal-alert-jobs-list" class="alert-job-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-alert-jobs-cancel">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 处理告警 -->
+  <div class="modal-overlay" id="modal-alert-handle" role="dialog" aria-modal="true" aria-labelledby="modal-alert-handle-title">
+    <div class="modal modal-alert-handle">
+      <div class="modal-header">
+        <h3 id="modal-alert-handle-title">处理告警</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-alert-handle-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="modal-alert-handle-summary" class="modal-msg"></p>
+        <p class="modal-meta" id="modal-alert-handle-id"></p>
+        <div class="alert-handle-targets" id="modal-alert-handle-targets" hidden></div>
+        <div class="form-group" style="margin-top:16px">
+          <label>处理状态 <span class="req">*</span></label>
+          <div class="alert-handle-options" role="radiogroup" aria-label="处理状态">
+            <label class="alert-handle-option">
+              <input type="radio" name="alert-handle-status" value="following" />
+              <span class="alert-handle-option-title">处理中</span>
+              <span class="alert-handle-option-desc">状态更新为跟进中</span>
+            </label>
+            <label class="alert-handle-option">
+              <input type="radio" name="alert-handle-status" value="handled" />
+              <span class="alert-handle-option-title">已完成</span>
+              <span class="alert-handle-option-desc">平台侧已处理完毕</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:14px">
+          <label for="modal-alert-handle-remark">处理备注 <span class="req">*</span></label>
+          <textarea id="modal-alert-handle-remark" rows="3" placeholder="填写处理说明，例如已隔离节点、已转交硬件维修…" style="min-height:84px"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-alert-handle-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="modal-alert-handle-confirm">确认处理</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 配置挂载：删除确认 -->
+  <div class="modal-overlay" id="modal-cfg-unmount" role="dialog" aria-modal="true" aria-labelledby="modal-cfg-unmount-title">
+    <div class="modal modal-confirm">
+      <div class="modal-header">
+        <h3 id="modal-cfg-unmount-title">确认删除挂载</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-cfg-unmount-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-msg">
+          确定删除这条配置文件挂载
+          <strong id="modal-cfg-unmount-name"></strong>
+          吗？
+        </p>
+        <p class="modal-hint is-warning">
+          删除后提交任务将不再挂载该配置集，可随时重新添加。
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-cfg-unmount-cancel">取消</button>
+        <button type="button" class="btn btn-danger" id="modal-cfg-unmount-confirm">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 配置集：删除文件确认 -->
+  <div class="modal-overlay" id="modal-cfg-del-file" role="dialog" aria-modal="true" aria-labelledby="modal-cfg-del-file-title">
+    <div class="modal modal-confirm">
+      <div class="modal-header">
+        <h3 id="modal-cfg-del-file-title">确认删除文件</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-cfg-del-file-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-msg">
+          确定删除文件
+          <strong id="modal-cfg-del-file-name" class="mono"></strong>
+          吗？
+        </p>
+        <p class="modal-hint is-warning">
+          删除后可重新新建或上传。未发布前不会影响已发布版本。
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-cfg-del-file-cancel">取消</button>
+        <button type="button" class="btn btn-danger" id="modal-cfg-del-file-confirm">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 配置集：归档 / 恢复 -->
+  <div class="modal-overlay" id="modal-cfg-archive" role="dialog" aria-modal="true" aria-labelledby="modal-cfg-archive-title">
+    <div class="modal modal-confirm">
+      <div class="modal-header">
+        <h3 id="modal-cfg-archive-title">归档配置集</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-cfg-archive-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-msg">
+          确定<span id="modal-cfg-archive-verb">归档</span>配置集
+          <strong id="modal-cfg-archive-name"></strong>
+          吗？
+        </p>
+        <p class="modal-hint is-warning" id="modal-cfg-archive-hint">
+          已绑定任务的版本快照仍保留，可在任务详情回看当时内容。归档后新建任务下拉不再出现该配置集。
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-cfg-archive-cancel">取消</button>
+        <button type="button" class="btn btn-danger" id="modal-cfg-archive-confirm">确认归档</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 配置集：离开编辑未保存 -->
+  <div class="modal-overlay" id="modal-cfg-dirty" role="dialog" aria-modal="true" aria-labelledby="modal-cfg-dirty-title">
+    <div class="modal modal-confirm">
+      <div class="modal-header">
+        <h3 id="modal-cfg-dirty-title">未保存的修改</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-cfg-dirty-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-msg">
+          编辑器中有未写入草稿的修改。离开后这些内容会丢失。
+        </p>
+        <p class="modal-hint is-warning">
+          可返回继续编辑并保存草稿，或放弃本次未写入的内容。
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-cfg-dirty-cancel">继续编辑</button>
+        <button type="button" class="btn btn-danger" id="modal-cfg-dirty-leave">放弃修改</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 配置集：平台版本对比 -->
+  <div class="modal-overlay" id="modal-cfg-diff" role="dialog" aria-modal="true" aria-labelledby="modal-cfg-diff-title">
+    <div class="modal modal-cfg-diff">
+      <div class="modal-header">
+        <h3 id="modal-cfg-diff-title">版本对比</h3>
+        <button type="button" class="btn btn-ghost btn-sm" id="modal-cfg-diff-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body" id="modal-cfg-diff-body"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="modal-cfg-diff-cancel">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/data.js?v=20260827-cfg-draft"></script>
+  <script src="assets/js/app.js?v=20260827-cfg-draft"></script>
+
+</body>
+</html>
