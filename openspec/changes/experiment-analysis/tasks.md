@@ -43,3 +43,11 @@
 - [x] 6.3 侧栏不再展示项目描述（只保留右侧）；侧栏项目列表分页；创建后翻到所在页；更新 E2E
 
 规则域：`openspec`、`documentation`、`testing`命中。`architecture`无影响（不改模块边界与装配路径）。`api-contract`无影响（不改 HTTP 契约；侧栏分页在前端切片，因任务创建下拉与移动弹层仍需完整候选）。`backend-go`、`database`无影响。`.agents/rules/frontend-ui.md`与`.agents/rules/i18n.md`仍缺失：视觉对齐`prototype.css`，文案用中文，无独立语言包。`.agents/rules/data-permission.md`仍缺失：按团队成员过滤`Run`。不引入字典模块。
+
+- [x] 6.4 成功实验外层`Loss`/进度/吞吐为空：根因是训练`Job`未挂`/data/hpc/home`，演示任务也不写`tfevents`，读盘`Job`与训练可能落在不同节点。训练`Job`挂个人盘与共享盘；代理镜像增加`demo`命令写入`lm loss`/`tokens_per_sec`/`max_steps`；读盘与看板按训练任务卡型号选节点；`kind`工作节点`extraMounts`共享宿主机目录；新建任务可「填入本地演示训练」；对账解析`maxSteps`并按真实 Pod 读日志。E2E `TC024`覆盖列数据与打开`TensorBoard`。
+
+规则域：`openspec`、`documentation`、`testing`、`backend-go`、`architecture`、`api-contract`命中。`api-contract`无 HTTP 字段增删，仅回写已有`maxSteps`。`database`无影响（沿用`006`列）。`.agents/rules/frontend-ui.md`与`.agents/rules/i18n.md`仍缺失。
+
+- [x] 6.5 看板不走`kubectl port-forward`：浏览器只访问当前服务`/api/training/experiments/{id}/board/`。容器内`TensorBoard`绑`127.0.0.1`，6006 为标准`HTTP`入口，平台经`API Server`的`Pod`反代嵌入页签。
+
+规则域：`openspec`、`documentation`、`testing`、`backend-go`、`api-contract`命中。`database`无影响。

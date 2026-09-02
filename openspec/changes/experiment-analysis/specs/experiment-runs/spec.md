@@ -14,6 +14,11 @@
 - **WHEN** 一条`Run`尚无`metrics_at`快照
 - **THEN** `Loss`、进度与吞吐列显示`—`
 
+#### Scenario: 读盘成功后展示 Loss 进度与吞吐
+
+- **WHEN** 一条`Run`已成功回写`last_loss`、`last_step`、`max_steps`与`last_tokens_per_sec`
+- **THEN** 列表对应列显示这些数字而不是`—`，进度为`step {last_step}/{max_steps}`
+
 #### Scenario: 切换工作集群后只列出该集群 Run
 
 - **WHEN** 用户在实验分析将工作集群从 A 切换为 B

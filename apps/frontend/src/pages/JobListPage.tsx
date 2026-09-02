@@ -9,6 +9,7 @@ import { Modal } from "@/components/Modal";
 import { Pagination } from "@/components/Pagination";
 import { Select } from "@/components/Select";
 import { DcBadge } from "@/components/UsageCell";
+import { formatLoss } from "@/lib/experiment";
 import { formatDuration } from "@/lib/format";
 import { CreatedAtCell, JobPriorityBadge, JobResourceCell, JobStatusBadge, isActiveJob } from "@/lib/job";
 import { toast } from "@/lib/toast";
@@ -171,7 +172,7 @@ export function JobListPage() {
                             ib={job.requireIb}
                           />
                         </td>
-                        <td className="mono">{job.loss == null ? "—" : job.loss}</td>
+                        <td className="mono" title={job.loss == null ? undefined : String(job.loss)}>{formatLoss(job.loss)}</td>
                         <td className="mono">{job.step == null ? "—" : job.maxSteps ? `${job.step}/${job.maxSteps}` : String(job.step)}</td>
                         <td className="mono td-nowrap">{formatDuration(job.durationMs)}</td>
                         <td className="td-nowrap">{job.ownerNickname}</td>

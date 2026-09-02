@@ -372,10 +372,20 @@ func (f *Fake) ApplyAgentJob(ctx context.Context, spec AgentSpec) error {
 	if f.AgentJobs == nil {
 		f.AgentJobs = map[string]AgentWorkload{}
 	}
+	labels := agentLabels(spec)
 	f.AgentJobs[namespaceKey(spec.Namespace, spec.Name)] = AgentWorkload{
 		Name:   spec.Name,
 		Phase:  "Active",
-		Labels: map[string]string{"maip.io/role": spec.Role},
+		Labels: labels,
+	}
+	if f.AgentPods == nil {
+		f.AgentPods = map[string]AgentWorkload{}
+	}
+	podName := spec.Name + "-0"
+	f.AgentPods[namespaceKey(spec.Namespace, podName)] = AgentWorkload{
+		Name:   podName,
+		Phase:  "Running",
+		Labels: labels,
 	}
 	return nil
 }
@@ -392,7 +402,7 @@ func (f *Fake) ApplyAgentPod(ctx context.Context, spec AgentSpec) error {
 		Name:   spec.Name,
 		Phase:  "Running",
 		Ready:  true,
-		Labels: map[string]string{"maip.io/role": spec.Role},
+		Labels: agentLabels(spec),
 	}
 	return nil
 }
@@ -432,6 +442,7 @@ func (f *Fake) DeleteAgentJob(ctx context.Context, namespace, name string) error
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	delete(f.AgentJobs, namespaceKey(namespace, name))
+	delete(f.AgentPods, namespaceKey(namespace, name+"-0"))
 	return nil
 }
 

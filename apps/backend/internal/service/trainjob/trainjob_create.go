@@ -468,8 +468,9 @@ func buildVolcanoJob(p *preparedCreate, cmNames []string) *batchv1alpha1.Job {
 	if p.gpuType != "" {
 		selector[consts.LabelKeyGPUType] = p.gpuType
 	}
-	var volumes []corev1.Volume
-	var mounts []corev1.VolumeMount
+	hostVols, hostMounts := kube.HostStorageMounts()
+	volumes := append([]corev1.Volume{}, hostVols...)
+	mounts := append([]corev1.VolumeMount{}, hostMounts...)
 	for i, cmName := range cmNames {
 		volName := fmt.Sprintf("cfg-%d", i)
 		items := make([]corev1.KeyToPath, 0, len(p.mounts[i].Files))
@@ -488,9 +489,34 @@ func buildVolcanoJob(p *preparedCreate, cmNames []string) *batchv1alpha1.Job {
 		mounts = append(mounts, corev1.VolumeMount{Name: volName, MountPath: p.mounts[i].MountPath, ReadOnly: true})
 	}
 	script := "export RANK=${VK_TASK_INDEX:-0}\n" + p.command
+	logDir := ""
+	if p.envMap != nil {
+		logDir = p.envMap[consts.EnvTensorBoardLogDir]
+	}
+	prepareEnv := []corev1.EnvVar{
+		{Name: "WORKDIR", Value: p.workdir},
+		{Name: consts.EnvTensorBoardLogDir, Value: logDir},
+	}
 	podSpec := corev1.PodSpec{
 		RestartPolicy: corev1.RestartPolicyNever,
 		SchedulerName: "volcano",
+		InitContainers: []corev1.Container{{
+			Name:    "prepare-dirs",
+			Image:   p.image,
+			Command: []string{"/bin/sh", "-c", "mkdir -p -- \"$WORKDIR\" \"$TENSORBOARD_LOGDIR\""},
+			Env:     prepareEnv,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+					corev1.ResourceMemory: resource.MustParse("16Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("10m"),
+					corev1.ResourceMemory: resource.MustParse("16Mi"),
+				},
+			},
+			VolumeMounts: hostMounts,
+		}},
 		Containers: []corev1.Container{{
 			Name:         consts.TrainingContainerName,
 			Image:        p.image,

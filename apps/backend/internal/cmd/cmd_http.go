@@ -159,7 +159,9 @@ func httpFunc(ctx context.Context, _ *gcmd.Parser) error {
 		group.Group("/", func(protected *ghttp.RouterGroup) {
 			protected.Middleware(mwSvc.Auth, mwSvc.Permission)
 			protected.Bind(dcCtrl, userCtrl, roleCtrl, teamCtrl, systemCtrl, clusterCtrl, nodeCtrl, queueCtrl, alertCtrl, trainingCtrl)
-			protected.ALL("/training/experiments/{id}/board/{*path}", trainingCtrl.ProxyBoard)
+			protected.GET("/training/experiments/{id}/board/", trainingCtrl.ProxyBoard)
+			protected.GET("/training/experiments/{id}/board/*any", trainingCtrl.ProxyBoard)
+			protected.HEAD("/training/experiments/{id}/board/*any", trainingCtrl.ProxyBoard)
 		})
 	})
 	enhanceOpenAPIDoc(s)

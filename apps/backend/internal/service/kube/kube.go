@@ -141,6 +141,7 @@ type AgentSpec struct {
 	RunID      int64             // 实验 Run ID
 	Role       string            // metrics 或 serve
 	Datacenter string            // 机房节点选择器
+	GPUType    string            // 可选卡型号，与训练任务落在同一类节点
 	Image      string            // 镜像
 	Command    []string          // 命令
 	Args       []string          // 参数

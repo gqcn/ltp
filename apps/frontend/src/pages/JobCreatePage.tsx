@@ -66,6 +66,8 @@ function parseEnv(text: string) {
 const WORKDIR_PLACEHOLDER = "/data/hpc/home/<运行用户>";
 const CONFIG_MOUNT_PATH_PATTERN = "/data/hpc/home/<username>/experiments/<任务名称>/configs/";
 const LATEST_AT_SUBMIT = "latest_at_submit";
+const DEMO_TRAIN_IMAGE = "ltp/experiment-agent:dev";
+const DEMO_TRAIN_COMMAND = "python /opt/agent/agent.py demo";
 
 type MountVersion = number | typeof LATEST_AT_SUBMIT;
 type MountMode = "dir" | "files";
@@ -456,6 +458,19 @@ export function JobCreatePage() {
     };
   }, []);
 
+  function fillLocalDemo() {
+    methods.setValue("name", `demo-exp-${Date.now().toString(36)}`, { shouldDirty: true, shouldValidate: true });
+    methods.setValue("image", DEMO_TRAIN_IMAGE, { shouldDirty: true, shouldValidate: true });
+    methods.setValue("command", DEMO_TRAIN_COMMAND, { shouldDirty: true, shouldValidate: true });
+    methods.setValue("nodes", 1, { shouldDirty: true, shouldValidate: true });
+    methods.setValue("gpusPerNode", 1, { shouldDirty: true, shouldValidate: true });
+    methods.setValue("cpuPerNode", 1, { shouldDirty: true, shouldValidate: true });
+    methods.setValue("memGiPerNode", 1, { shouldDirty: true, shouldValidate: true });
+    methods.setValue("priority", "P2", { shouldDirty: true });
+    goTab("launch");
+    toast.success("已填入本地演示训练，提交后会写入 Loss、进度和吞吐");
+  }
+
   function goTab(id: (typeof tabs)[number]["id"]) {
     setTab(id);
     tabScrollLock.current = true;
@@ -472,6 +487,11 @@ export function JobCreatePage() {
           <h1>{rerunId ? "重跑训练任务" : "创建训练任务"}</h1>
           <p className="desc">{rerunId ? "已载入原任务配置，按需修改团队 / 队列与参数后重新提交（IB 由所选队列决定）" : "选择团队与资源队列，按队列额度配置规格与启动参数后提交（IB 能力由所选队列决定）"}</p>
         </div>
+        {!rerunId ? (
+          <div className="page-actions">
+            <Button type="button" variant="secondary" size="sm" onClick={fillLocalDemo}>填入本地演示训练</Button>
+          </div>
+        ) : null}
       </div>
       {rerunId ? (
         <div className="demo-banner rerun-banner">

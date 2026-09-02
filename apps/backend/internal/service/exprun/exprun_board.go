@@ -3,8 +3,11 @@
 package exprun
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -15,6 +18,7 @@ import (
 	"github.com/gqcn/ltp/internal/model/do"
 	"github.com/gqcn/ltp/internal/model/entity"
 	"github.com/gqcn/ltp/internal/service/kube"
+	"github.com/gqcn/ltp/internal/service/trainjob"
 	"github.com/gqcn/ltp/pkg/logger"
 )
 
@@ -29,11 +33,6 @@ func (s *serviceImpl) OpenBoard(ctx context.Context, actor Actor, id int64) (*Bo
 	}
 	if err := s.ensureServe(ctx, row); err != nil {
 		logger.Warningf(ctx, "ensure serve for run %d: %v", id, err)
-		return &BoardOpen{
-			ProxyPath: boardProxyPath(id),
-			Ready:     false,
-			Message:   "正在启动 TensorBoard，请稍后重试",
-		}, nil
 	}
 	deadline := time.Now().Add(boardWait)
 	for time.Now().Before(deadline) {
@@ -42,7 +41,10 @@ func (s *serviceImpl) OpenBoard(ctx context.Context, actor Actor, id int64) (*Bo
 			return &BoardOpen{ProxyPath: boardProxyPath(id), Ready: false, Message: "看板启动失败"}, nil
 		}
 		if ready {
-			return &BoardOpen{ProxyPath: boardProxyPath(id), Ready: true}, nil
+			status, body, _, probeErr := s.ProxyBoard(ctx, actor, id, http.MethodGet, "", "", nil, nil)
+			if probeErr == nil && status >= 200 && status < 400 && bytes.Contains(bytes.ToLower(body), []byte("html")) {
+				return &BoardOpen{ProxyPath: boardProxyPath(id), Ready: true}, nil
+			}
 		}
 		select {
 		case <-ctx.Done():
@@ -54,29 +56,29 @@ func (s *serviceImpl) OpenBoard(ctx context.Context, actor Actor, id int64) (*Bo
 }
 
 // ProxyBoard 将会话请求反代到 serve Pod。
-func (s *serviceImpl) ProxyBoard(ctx context.Context, actor Actor, id int64, method, path, rawQuery string, header map[string]string, body []byte) (int, []byte, error) {
+func (s *serviceImpl) ProxyBoard(ctx context.Context, actor Actor, id int64, method, path, rawQuery string, header map[string]string, body []byte) (int, []byte, map[string]string, error) {
 	row, err := s.mustVisible(ctx, actor, id)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 	client, err := s.clusterSvc.Client(ctx, row.ClusterId)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 	res, err := client.ProxyPod(ctx, kube.PodProxyInput{
 		Namespace: consts.TrainingNamespace,
 		Pod:       serveName(row.Id),
 		Port:      consts.ExperimentAgentPort,
 		Method:    method,
-		Path:      path,
+		Path:      strings.TrimPrefix(path, "/"),
 		RawQuery:  rawQuery,
 		Header:    header,
 		Body:      body,
 	})
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
-	return res.Status, res.Body, nil
+	return res.Status, res.Body, res.Header, nil
 }
 
 func (s *serviceImpl) ensureServe(ctx context.Context, row *entity.ExpRun) error {
@@ -99,12 +101,12 @@ func (s *serviceImpl) ensureServe(ctx context.Context, row *entity.ExpRun) error
 		RunID:      row.Id,
 		Role:       agentRoleServe,
 		Datacenter: row.DatacenterCode,
+		GPUType:    gpuTypeOf(s.linkedJob(ctx, row.JobId)),
 		Image:      s.cfg.AgentImage,
 		Args: []string{
 			"serve",
 			"--logdir", row.TbLogdir,
 			"--port", fmt.Sprintf("%d", consts.ExperimentAgentPort),
-			"--path_prefix", boardProxyPath(row.Id),
 		},
 		Env: map[string]string{consts.EnvTensorBoardLogDir: row.TbLogdir},
 	}
@@ -130,6 +132,18 @@ func (s *serviceImpl) serveReady(ctx context.Context, row *entity.ExpRun) (bool,
 		}
 	}
 	return false, nil
+}
+
+// linkedJob 按任务 ID 取投影；缺失或查询失败时返回 nil。
+func (s *serviceImpl) linkedJob(ctx context.Context, jobID int64) *trainjob.Item {
+	if jobID <= 0 || s.jobSvc == nil {
+		return nil
+	}
+	jobs, err := s.jobSvc.MapByIDs(ctx, []int64{jobID})
+	if err != nil || jobs == nil {
+		return nil
+	}
+	return jobs[jobID]
 }
 
 func serveName(runID int64) string {

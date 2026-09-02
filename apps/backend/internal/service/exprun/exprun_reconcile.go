@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/os/gtime"
 
 	"github.com/gqcn/ltp/internal/consts"
@@ -26,6 +27,7 @@ type metricsJSON struct {
 	Step         *int64   `json:"step"`
 	Loss         *float64 `json:"loss"`
 	TokensPerSec *float64 `json:"tokensPerSec"`
+	MaxSteps     *int64   `json:"maxSteps"`
 	Error        string   `json:"error"`
 }
 
@@ -80,7 +82,7 @@ func (s *serviceImpl) reconcileCluster(ctx context.Context, clusterID int64) err
 			if cur, ok := jobByRun[row.Id]; ok {
 				s.finishMetrics(ctx, client, row, cur)
 			} else {
-				if err := s.startMetrics(ctx, client, row); err != nil {
+				if err := s.startMetrics(ctx, client, row, job); err != nil {
 					logger.Warningf(ctx, "start metrics run %d: %v", row.Id, err)
 					s.writeMetricsError(ctx, row.Id, "读盘任务启动失败")
 				}
@@ -127,7 +129,8 @@ func (s *serviceImpl) needMetrics(row *entity.ExpRun, job *trainjob.Item, now ti
 	}
 }
 
-func (s *serviceImpl) startMetrics(ctx context.Context, client kube.ClusterClient, row *entity.ExpRun) error {
+// startMetrics 创建读盘 Job，节点选择器带机房与可选卡型号。
+func (s *serviceImpl) startMetrics(ctx context.Context, client kube.ClusterClient, row *entity.ExpRun, job *trainjob.Item) error {
 	if err := client.EnsureNamespace(ctx, consts.TrainingNamespace); err != nil {
 		return err
 	}
@@ -137,24 +140,20 @@ func (s *serviceImpl) startMetrics(ctx context.Context, client kube.ClusterClien
 		RunID:      row.Id,
 		Role:       agentRoleMetrics,
 		Datacenter: row.DatacenterCode,
+		GPUType:    gpuTypeOf(job),
 		Image:      s.cfg.AgentImage,
 		Args:       []string{"metrics", "--logdir", row.TbLogdir},
 		Env:        map[string]string{consts.EnvTensorBoardLogDir: row.TbLogdir},
 	})
 }
 
+// finishMetrics 在读盘 Job 结束后解析标准输出并回写快照。
 func (s *serviceImpl) finishMetrics(ctx context.Context, client kube.ClusterClient, row *entity.ExpRun, job kube.AgentWorkload) {
 	switch job.Phase {
 	case "Active":
 		return
 	case "Succeeded":
-		logs, err := client.GetPodLogs(ctx, consts.TrainingNamespace, metricsName(row.Id)+"-xxxx", 50)
-		if err != nil {
-			pods, listErr := client.ListAgentPods(ctx, consts.TrainingNamespace, fmt.Sprintf("%s=%s,%s=%d", consts.LabelKeyAgentRole, agentRoleMetrics, consts.LabelKeyRunID, row.Id))
-			if listErr == nil && len(pods) > 0 {
-				logs, err = client.GetPodLogs(ctx, consts.TrainingNamespace, pods[0].Name, 50)
-			}
-		}
+		logs, err := readMetricsLogs(ctx, client, row.Id)
 		if err != nil {
 			s.writeMetricsError(ctx, row.Id, "读取实验指标失败")
 			_ = client.DeleteAgentJob(ctx, consts.TrainingNamespace, metricsName(row.Id))
@@ -168,22 +167,43 @@ func (s *serviceImpl) finishMetrics(ctx context.Context, client kube.ClusterClie
 	}
 }
 
-func (s *serviceImpl) applyMetricsJSON(ctx context.Context, runID int64, raw string) {
+// readMetricsLogs 读取该 Run 读盘 Job 下属 Pod 的标准输出。
+func readMetricsLogs(ctx context.Context, client kube.ClusterClient, runID int64) (string, error) {
+	selector := fmt.Sprintf("%s=%s,%s=%d", consts.LabelKeyAgentRole, agentRoleMetrics, consts.LabelKeyRunID, runID)
+	pods, err := client.ListAgentPods(ctx, consts.TrainingNamespace, selector)
+	if err != nil {
+		return "", err
+	}
+	if len(pods) == 0 {
+		return "", gerror.New("metrics pod not found")
+	}
+	return client.GetPodLogs(ctx, consts.TrainingNamespace, pods[0].Name, 50)
+}
+
+// parseMetricsLine 从日志中解析最后一行指标 JSON。失败时返回中文原因。
+func parseMetricsLine(raw string) (*metricsJSON, string) {
 	line := lastJSONLine(raw)
 	if line == "" {
-		s.writeMetricsError(ctx, runID, "未读到指标")
-		return
+		return nil, "未读到指标"
 	}
 	var payload metricsJSON
 	if err := json.Unmarshal([]byte(line), &payload); err != nil {
-		s.writeMetricsError(ctx, runID, "指标格式无效")
-		return
+		return nil, "指标格式无效"
 	}
 	if !payload.OK {
 		msg := strings.TrimSpace(payload.Error)
 		if msg == "" {
 			msg = "未读到指标"
 		}
+		return nil, msg
+	}
+	return &payload, ""
+}
+
+// applyMetricsJSON 把读盘 JSON 写入 Run 快照；解析失败只记 metrics_error。
+func (s *serviceImpl) applyMetricsJSON(ctx context.Context, runID int64, raw string) {
+	payload, msg := parseMetricsLine(raw)
+	if payload == nil {
 		s.writeMetricsError(ctx, runID, msg)
 		return
 	}
@@ -197,9 +217,20 @@ func (s *serviceImpl) applyMetricsJSON(ctx context.Context, runID int64, raw str
 	if payload.TokensPerSec != nil {
 		data.LastTokensPerSec = *payload.TokensPerSec
 	}
+	if payload.MaxSteps != nil && *payload.MaxSteps > 0 {
+		data.MaxSteps = *payload.MaxSteps
+	}
 	if _, err := dao.ExpRun.Ctx(ctx).Where(do.ExpRun{Id: runID}).Data(data).Update(); err != nil {
 		logger.Warningf(ctx, "update metrics run %d: %v", runID, err)
 	}
+}
+
+// gpuTypeOf 返回关联任务的卡型号，供读盘与看板与训练任务落在同一类节点。
+func gpuTypeOf(job *trainjob.Item) string {
+	if job == nil {
+		return ""
+	}
+	return job.GPUType
 }
 
 func (s *serviceImpl) writeMetricsError(ctx context.Context, runID int64, message string) {

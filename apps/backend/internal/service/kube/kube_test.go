@@ -37,6 +37,39 @@ func TestJobOwnerRefUsesVolcanoJobGVK(t *testing.T) {
 	}
 }
 
+func TestHostStorageMounts(t *testing.T) {
+	vols, mounts := HostStorageMounts()
+	if len(vols) != 2 || len(mounts) != 2 {
+		t.Fatalf("vols=%d mounts=%d", len(vols), len(mounts))
+	}
+	if vols[0].HostPath == nil || vols[0].HostPath.Path != consts.HomeMountPath {
+		t.Fatalf("home vol=%+v", vols[0])
+	}
+	if vols[1].HostPath == nil || vols[1].HostPath.Path != consts.ShareMountPath {
+		t.Fatalf("share vol=%+v", vols[1])
+	}
+}
+
+func TestAgentPodSpecSelectsGPUType(t *testing.T) {
+	spec := agentPodSpec(AgentSpec{
+		Namespace:  "maip",
+		Name:       "exp-1-metrics",
+		Role:       "metrics",
+		Datacenter: "cq-lj",
+		GPUType:    "NVIDIA-H200",
+		Image:      "ltp/experiment-agent:dev",
+	}, corev1.RestartPolicyNever)
+	if spec.NodeSelector[consts.LabelKeyDatacenter] != "cq-lj" {
+		t.Fatalf("datacenter selector=%v", spec.NodeSelector)
+	}
+	if spec.NodeSelector[consts.LabelKeyGPUType] != "NVIDIA-H200" {
+		t.Fatalf("gpu selector=%v", spec.NodeSelector)
+	}
+	if spec.Containers[0].ImagePullPolicy != corev1.PullIfNotPresent {
+		t.Fatalf("pull policy=%s", spec.Containers[0].ImagePullPolicy)
+	}
+}
+
 func TestFakeAgentWorkloadLifecycle(t *testing.T) {
 	ctx := context.Background()
 	fake := &Fake{}

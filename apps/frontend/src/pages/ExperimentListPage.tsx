@@ -19,6 +19,7 @@ import { ListBody } from "@/components/ListLoading";
 import { Modal } from "@/components/Modal";
 import { Pagination } from "@/components/Pagination";
 import { Select } from "@/components/Select";
+import { ExperimentProgress, formatLoss, formatTokensPerSec } from "@/lib/experiment";
 import { CreatedAtCell, JobStatusBadge } from "@/lib/job";
 import { toast } from "@/lib/toast";
 import { useWorkingCluster } from "@/lib/useWorkingCluster";
@@ -30,16 +31,6 @@ function projectPageOf(list: ExperimentProject[], id: number) {
   const idx = list.findIndex((p) => p.id === id);
   if (idx < 0) return 1;
   return Math.floor(idx / PROJECT_PAGE_SIZE) + 1;
-}
-
-function dash(v: number | null | undefined) {
-  return v == null ? "—" : String(v);
-}
-
-function progressLabel(run: ExperimentRun) {
-  if (run.step == null) return "—";
-  if (run.maxSteps == null) return `step ${run.step.toLocaleString()}`;
-  return `step ${run.step.toLocaleString()}/${run.maxSteps.toLocaleString()}`;
 }
 
 function projectLabel(p: ExperimentProject) {
@@ -206,8 +197,12 @@ export function ExperimentListPage() {
           <Button variant="secondary" onClick={() => navigate(jobCreateHref)}>
             新建训练任务
           </Button>
-          <Button variant="secondary" disabled={selected.length < 2} onClick={() => navigate(`/training/experiments/compare?ids=${selected.join(",")}`)}>
-            对比实验 ({selected.length})
+          <Button
+            variant={selected.length >= 2 ? "primary" : "secondary"}
+            disabled={selected.length < 2}
+            onClick={() => navigate(`/training/experiments/compare?ids=${selected.join(",")}`)}
+          >
+            {selected.length >= 2 ? `对比实验 (${selected.length})` : "对比实验"}
           </Button>
         </div>
       </div>
@@ -223,14 +218,14 @@ export function ExperimentListPage() {
             <div className={`exp-project-item ${projectId === 0 ? "active" : ""}`} onClick={() => selectProject(0)}>
               <div className="exp-proj-body">
                 <span className="exp-proj-name">全部项目</span>
-                <span className="exp-proj-meta">{allCount} 个实验</span>
+                <span className="exp-proj-meta" title={`${allCount} 个实验`}>{allCount}</span>
               </div>
             </div>
             {pagedProjects.map((p) => (
               <div key={p.id} className={`exp-project-item ${projectId === p.id ? "active" : ""}`} onClick={() => selectProject(p.id)}>
                 <div className="exp-proj-body" title={projectLabel(p)}>
                   <span className="exp-proj-name">{projectLabel(p)}</span>
-                  <span className="exp-proj-meta">{p.runCount} 个实验</span>
+                  <span className="exp-proj-meta" title={`${p.runCount} 个实验`}>{p.runCount}</span>
                 </div>
               </div>
             ))}
@@ -240,56 +235,56 @@ export function ExperimentListPage() {
           </div>
         </aside>
         <div className="exp-main">
-          {currentProject ? (
-            <div className="exp-selected-head">
-              <div className="exp-selected-copy">
-                <div className="exp-selected-name">{projectLabel(currentProject)}</div>
-                {currentProject.description ? <p className="exp-selected-desc">{currentProject.description}</p> : null}
-              </div>
-              <div className="exp-selected-actions">
-                <Button size="sm" variant="secondary" onClick={() => openEdit(currentProject)}>
-                  编辑
-                </Button>
-                {isDefaultProject(currentProject) ? null : (
-                  <Button size="sm" variant="danger" onClick={() => setDeleteTarget(currentProject)}>
-                    删除
-                  </Button>
-                )}
-              </div>
-            </div>
-          ) : null}
-          <div className="toolbar exp-toolbar">
-            <div className="search-box">
-              <span className="search-icon">⌕</span>
-              <input value={keyword} onChange={(e) => { setKeyword(e.target.value); setPage(1); }} placeholder="搜索实验名 / 创建人..." />
-            </div>
-            <Select
-              variant="filter"
-              aria-label="按状态筛选"
-              value={status}
-              options={[
-                { value: "all", label: "全部状态" },
-                { value: "running", label: "运行中" },
-                { value: "success", label: "已完成" },
-                { value: "failed", label: "失败" },
-                { value: "cancelled", label: "已取消" },
-              ]}
-              onChange={(next) => { setStatus(next); setPage(1); }}
-            />
-            <Select
-              variant="filter"
-              aria-label="排序"
-              value={sort}
-              options={[
-                { value: "updated_desc", label: "最近更新" },
-                { value: "created_desc", label: "最近创建" },
-                { value: "loss_asc", label: "Train Loss ↑" },
-                { value: "loss_desc", label: "Train Loss ↓" },
-              ]}
-              onChange={setSort}
-            />
-          </div>
           <div className="card exp-list-card">
+            {currentProject ? (
+              <div className="exp-selected-head">
+                <div className="exp-selected-copy">
+                  <div className="exp-selected-name">{projectLabel(currentProject)}</div>
+                  {currentProject.description ? <p className="exp-selected-desc">{currentProject.description}</p> : null}
+                </div>
+                <div className="exp-selected-actions">
+                  <Button size="sm" variant="secondary" onClick={() => openEdit(currentProject)}>
+                    编辑
+                  </Button>
+                  {isDefaultProject(currentProject) ? null : (
+                    <Button size="sm" variant="danger" onClick={() => setDeleteTarget(currentProject)}>
+                      删除
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : null}
+            <div className="toolbar exp-toolbar">
+              <div className="search-box">
+                <span className="search-icon">⌕</span>
+                <input value={keyword} onChange={(e) => { setKeyword(e.target.value); setPage(1); }} placeholder="搜索实验名 / 创建人..." />
+              </div>
+              <Select
+                variant="filter"
+                aria-label="按状态筛选"
+                value={status}
+                options={[
+                  { value: "all", label: "全部状态" },
+                  { value: "running", label: "运行中" },
+                  { value: "success", label: "已完成" },
+                  { value: "failed", label: "失败" },
+                  { value: "cancelled", label: "已取消" },
+                ]}
+                onChange={(next) => { setStatus(next); setPage(1); }}
+              />
+              <Select
+                variant="filter"
+                aria-label="排序"
+                value={sort}
+                options={[
+                  { value: "updated_desc", label: "最近更新" },
+                  { value: "created_desc", label: "最近创建" },
+                  { value: "loss_asc", label: "Train Loss ↑" },
+                  { value: "loss_desc", label: "Train Loss ↓" },
+                ]}
+                onChange={setSort}
+              />
+            </div>
             <div className="card-body flush">
               <ListBody loading={clustersLoading || runsQuery.isLoading} loadingLabel="正在加载实验…" errorLabel="加载失败" emptyLabel="还没有实验" empty={false} error={runsQuery.isError}>
                 <div className="table-wrap exp-table-wrap">
@@ -308,9 +303,8 @@ export function ExperimentListPage() {
                         <th className="exp-col-status">状态</th>
                         <th className="exp-col-loss">Loss</th>
                         <th className="exp-col-step">进度</th>
-                        <th className="exp-col-tps">吞吐</th>
+                        <th className="exp-col-tps">吞吐 <span className="th-unit">tok/s</span></th>
                         <th className="exp-col-job">关联任务</th>
-                        <th className="exp-col-owner">创建人</th>
                         <th className="exp-col-time">更新时间</th>
                         <th className="exp-col-actions">操作</th>
                       </tr>
@@ -337,9 +331,11 @@ export function ExperimentListPage() {
                               </div>
                             </td>
                             <td>{run.jobStatus ? <JobStatusBadge status={run.jobStatus} /> : "—"}</td>
-                            <td className="mono">{dash(run.loss)}</td>
-                            <td className="mono">{progressLabel(run)}</td>
-                            <td className="mono">{dash(run.tokensPerSec)}</td>
+                            <td className="mono exp-col-loss" title={run.loss == null ? undefined : String(run.loss)}>{formatLoss(run.loss)}</td>
+                            <td className="exp-col-step">
+                              <ExperimentProgress compact step={run.step} maxSteps={run.maxSteps} />
+                            </td>
+                            <td className="mono exp-col-tps" title={run.tokensPerSec == null ? undefined : String(run.tokensPerSec)}>{formatTokensPerSec(run.tokensPerSec)}</td>
                             <td>
                               {run.jobId ? (
                                 <span className="exp-job-link link-cell" role="link" tabIndex={0} onClick={() => navigate(`/training/jobs/${run.jobId}`)}>
@@ -347,11 +343,11 @@ export function ExperimentListPage() {
                                 </span>
                               ) : "—"}
                             </td>
-                            <td>
+                            <td className="exp-col-time">
                               <div className="exp-owner-name">{run.ownerNickname}</div>
-                            </td>
-                            <td className="mono text-muted exp-col-time">
-                              <CreatedAtCell ms={run.updatedAt} />
+                              <div className="mono text-muted">
+                                <CreatedAtCell ms={run.updatedAt} />
+                              </div>
                             </td>
                             <td>
                               <div className="exp-row-actions">
@@ -363,10 +359,15 @@ export function ExperimentListPage() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={10}>
+                          <td colSpan={9}>
                             <div className="empty-state exp-empty">
                               {clusterId ? (
                                 <>
+                                  <svg className="exp-empty-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+                                    <rect x="6" y="8" width="36" height="32" rx="6" stroke="currentColor" strokeWidth="1.75" />
+                                    <path d="M12 32l7.5-9 6 5 10-14" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                                    <circle cx="35.5" cy="14" r="1.6" fill="currentColor" />
+                                  </svg>
                                   <p>还没有实验</p>
                                   <p className="text-muted">提交训练任务后会自动出现在这里。已有任务会在打开本页时补建。</p>
                                   <div className="exp-empty-actions">

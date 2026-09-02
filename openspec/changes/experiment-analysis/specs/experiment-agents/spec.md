@@ -12,7 +12,12 @@
 #### Scenario: 读盘成功后回写快照并删除 Job
 
 - **WHEN** `metrics Job`成功且标准输出为一行合法标量`JSON`
-- **THEN** `Run`的`last_loss`或对应空字段被更新，该`Job`随后被删除
+- **THEN** `Run`的`last_loss`、`last_step`、可选`max_steps`与吞吐被更新，该`Job`随后被删除
+
+#### Scenario: 读盘 Job 与训练任务落在同一类 GPU 节点
+
+- **WHEN** 关联训练任务带有卡型号
+- **THEN** `metrics Job`与`serve Pod`的节点选择器包含同一`maip.io/gpu-type`，以便读取同一节点上的`tfevents`
 
 #### Scenario: 无人查看时不常驻 TensorBoard
 
@@ -26,7 +31,7 @@
 #### Scenario: 有权限用户可以打开看板入口
 
 - **WHEN** 算法工程师打开本团队一条`Run`的`TensorBoard`页签
-- **THEN** 系统为该`Run`确保`serve`并给出同源反代地址
+- **THEN** 系统为该`Run`确保`serve`并给出当前服务地址`/api/training/experiments/{id}/board/`，页签可嵌入完整`TensorBoard`界面（含标量曲线）
 
 #### Scenario: 无权限用户不能打开他人看板
 
@@ -41,3 +46,12 @@
 
 - **WHEN** `metrics Job`读到不存在的`logdir`或没有任何 scalar tag
 - **THEN** `Run`列表该行`Loss`为`—`，任务仍保持原状态
+
+### Requirement: 代理镜像可写入完整演示曲线
+
+实验代理镜像 MUST 提供`demo`命令：向`TENSORBOARD_LOGDIR`写入含`lm loss`、`tokens_per_sec`、`max_steps`的`tfevents`后退出。本地验收可用该镜像作为训练任务镜像，提交后 MUST 能被读盘`Job`解析并回写外层快照。
+
+#### Scenario: 演示任务产生可回写的标量
+
+- **WHEN** 训练任务镜像为`ltp/experiment-agent:dev`且启动命令为`python /opt/agent/agent.py demo`，任务成功结束
+- **THEN** 对账读盘后该`Run`的`Loss`、进度（含`max_steps`）与吞吐不再为`—`

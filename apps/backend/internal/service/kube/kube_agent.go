@@ -22,9 +22,34 @@ import (
 const (
 	agentCPU    = "100m"
 	agentMemory = "256Mi"
-	homePath    = "/data/hpc/home"
-	sharePath   = "/share"
+	volumeHome  = "home"
+	volumeShare = "share"
 )
+
+// HostStorageMounts 返回机房个人盘与共享盘对应的 Volume 和 VolumeMount。
+// 路径与节点 hostPath 一致，供训练 Job 与实验代理共用同一份 tfevents。
+func HostStorageMounts() ([]corev1.Volume, []corev1.VolumeMount) {
+	hostType := corev1.HostPathDirectoryOrCreate
+	volumes := []corev1.Volume{
+		{
+			Name: volumeHome,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{Path: consts.HomeMountPath, Type: &hostType},
+			},
+		},
+		{
+			Name: volumeShare,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{Path: consts.ShareMountPath, Type: &hostType},
+			},
+		},
+	}
+	mounts := []corev1.VolumeMount{
+		{Name: volumeHome, MountPath: consts.HomeMountPath},
+		{Name: volumeShare, MountPath: consts.ShareMountPath},
+	}
+	return volumes, mounts
+}
 
 // ApplyAgentJob 创建或替换读盘 Job。
 func (c *liveClient) ApplyAgentJob(ctx context.Context, spec AgentSpec) error {
@@ -207,7 +232,7 @@ func (c *liveClient) DeleteAgentService(ctx context.Context, namespace, name str
 	return nil
 }
 
-// ProxyPod 经 API Server 反代容器端口。
+// ProxyPod 经 Kubernetes API 把请求反代到容器端口，调用方始终走平台服务地址。
 func (c *liveClient) ProxyPod(ctx context.Context, in PodProxyInput) (*PodProxyResult, error) {
 	if in.Namespace == "" || in.Pod == "" {
 		return nil, bizerr.New(CodeUnreachable, bizerr.P(msgParam, "pod proxy namespace and name are required"))
@@ -243,6 +268,9 @@ func (c *liveClient) ProxyPod(ctx context.Context, in PodProxyInput) (*PodProxyR
 		}
 	}
 	for k, v := range in.Header {
+		if strings.EqualFold(k, "Accept-Encoding") {
+			continue
+		}
 		req.SetHeader(k, v)
 	}
 	if len(in.Body) > 0 {
@@ -261,7 +289,13 @@ func (c *liveClient) ProxyPod(ctx context.Context, in PodProxyInput) (*PodProxyR
 	if err != nil && raw == nil {
 		return nil, bizerr.Wrap(err, CodeUnreachable, bizerr.P(msgParam, "proxy pod failed"))
 	}
-	return &PodProxyResult{Status: status, Header: map[string]string{}, Body: raw}, nil
+	header := map[string]string{}
+	var contentType string
+	result.ContentType(&contentType)
+	if contentType != "" {
+		header["Content-Type"] = contentType
+	}
+	return &PodProxyResult{Status: status, Header: header, Body: raw}, nil
 }
 
 func validateAgentSpec(spec AgentSpec) error {
@@ -289,16 +323,20 @@ func agentPodSpec(spec AgentSpec, restart corev1.RestartPolicy) corev1.PodSpec {
 	if spec.Datacenter != "" {
 		selector[consts.LabelKeyDatacenter] = spec.Datacenter
 	}
-	hostType := corev1.HostPathDirectoryOrCreate
+	if spec.GPUType != "" {
+		selector[consts.LabelKeyGPUType] = spec.GPUType
+	}
+	volumes, mounts := HostStorageMounts()
 	return corev1.PodSpec{
 		RestartPolicy: restart,
 		NodeSelector:  selector,
 		Containers: []corev1.Container{{
-			Name:    "agent",
-			Image:   spec.Image,
-			Command: spec.Command,
-			Args:    spec.Args,
-			Env:     env,
+			Name:            "agent",
+			Image:           spec.Image,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Command:         spec.Command,
+			Args:            spec.Args,
+			Env:             env,
 			Ports: []corev1.ContainerPort{{
 				Name:          "http",
 				ContainerPort: consts.ExperimentAgentPort,
@@ -313,24 +351,8 @@ func agentPodSpec(spec AgentSpec, restart corev1.RestartPolicy) corev1.PodSpec {
 					corev1.ResourceMemory: resource.MustParse(agentMemory),
 				},
 			},
-			VolumeMounts: []corev1.VolumeMount{
-				{Name: "home", MountPath: homePath},
-				{Name: "share", MountPath: sharePath},
-			},
+			VolumeMounts: mounts,
 		}},
-		Volumes: []corev1.Volume{
-			{
-				Name: "home",
-				VolumeSource: corev1.VolumeSource{
-					HostPath: &corev1.HostPathVolumeSource{Path: homePath, Type: &hostType},
-				},
-			},
-			{
-				Name: "share",
-				VolumeSource: corev1.VolumeSource{
-					HostPath: &corev1.HostPathVolumeSource{Path: sharePath, Type: &hostType},
-				},
-			},
-		},
+		Volumes: volumes,
 	}
 }

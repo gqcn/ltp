@@ -36,6 +36,10 @@ const (
 	TrainingMasterPort = "23456"
 	// EnvTensorBoardLogDir 是注入训练容器的 TensorBoard 目录环境变量名。
 	EnvTensorBoardLogDir = "TENSORBOARD_LOGDIR"
+	// HomeMountPath 是各机房个人盘在节点与容器内的路径。
+	HomeMountPath = "/data/hpc/home"
+	// ShareMountPath 是各机房共享盘在节点与容器内的路径。
+	ShareMountPath = "/share"
 	// LabelKeyAgent 标记平台实验代理对象。
 	LabelKeyAgent = "maip.io/agent"
 	// LabelKeyAgentRole 是实验代理角色。

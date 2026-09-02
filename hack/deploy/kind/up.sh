@@ -4,6 +4,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
 CLUSTER_NAME="${KIND_CLUSTER:-ltp}"
+KIND_HPC_HOME="${KIND_HPC_HOME:-/tmp/ltp-kind/hpc-home}"
+KIND_SHARE="${KIND_SHARE:-/tmp/ltp-kind/share}"
+mkdir -p "${KIND_HPC_HOME}" "${KIND_SHARE}"
 KIND_IMAGE="${KIND_IMAGE:-kindest/node:v1.27.16}"
 VOLCANO_CHART_VERSION="${VOLCANO_CHART_VERSION:-1.13.0}"
 CONFIG="${ROOT_DIR}/hack/deploy/kind/cluster.yaml"

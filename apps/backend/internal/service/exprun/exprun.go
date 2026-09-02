@@ -152,8 +152,8 @@ type Service interface {
 	MapByJobIDs(ctx context.Context, jobIDs []int64) (map[int64]trainjob.ExperimentRef, error)
 	// OpenBoard 记录访问并确保 serve Pod。
 	OpenBoard(ctx context.Context, actor Actor, id int64) (*BoardOpen, error)
-	// ProxyBoard 将会话请求反代到 serve Pod。
-	ProxyBoard(ctx context.Context, actor Actor, id int64, method, path, rawQuery string, header map[string]string, body []byte) (int, []byte, error)
+	// ProxyBoard 将会话请求反代到 serve Pod。返回状态码、正文和需回写的响应头。
+	ProxyBoard(ctx context.Context, actor Actor, id int64, method, path, rawQuery string, header map[string]string, body []byte) (int, []byte, map[string]string, error)
 	// Reconcile 对所有健康集群对账实验代理。
 	Reconcile(ctx context.Context) error
 }

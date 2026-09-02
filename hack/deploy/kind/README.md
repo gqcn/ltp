@@ -27,6 +27,8 @@ kubectl --context kind-ltp get nodes -o custom-columns=NAME:.metadata.name,GPU:.
 kubectl --context kind-ltp get queue
 ```
 
-`make kind.up`会构建并加载`ltp/experiment-agent:dev`，供实验分析读盘与`TensorBoard`看板使用。本地节点没有真实`NFS`时，读盘失败外层显示`—`，不把训练任务标为失败。
+`make kind.up`会构建并加载`ltp/experiment-agent:dev`，供实验分析读盘、演示训练与`TensorBoard`看板使用。三个工作节点通过`extraMounts`共享宿主机`/tmp/ltp-kind/hpc-home`与`/tmp/ltp-kind/share`，模拟机房网络盘。训练任务会把`/data/hpc/home`挂进容器；在新建任务页点「填入本地演示训练」后提交，任务会向`TENSORBOARD_LOGDIR`写入`tfevents`。对账读盘成功后，实验分析的 Loss、进度、吞吐列显示真实标量，详情可打开`TensorBoard`。
+
+若当前`kind`集群是在增加`extraMounts`之前创建的，需要`make kind.down && make kind.up`后共享盘才生效。仅重新加载镜像可执行`make kind.up`（集群已存在时会跳过创建并重新`kind load`代理镜像）。
 
 旧的单控制面`ltp`集群无法在线加入 worker。请先`make kind.down`再`make kind.up`。

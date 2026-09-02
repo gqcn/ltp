@@ -9,6 +9,60 @@ import (
 	"github.com/gqcn/ltp/internal/service/traincfg"
 )
 
+func TestBuildVolcanoJobHostStorage(t *testing.T) {
+	job := buildVolcanoJob(&preparedCreate{
+		name:         "demo-job",
+		image:        "ltp/experiment-agent:dev",
+		command:      "python /opt/agent/agent.py demo",
+		workdir:      "/data/hpc/home/algo",
+		nodes:        1,
+		gpusPerNode:  1,
+		cpuPerNode:   1,
+		memGiPerNode: 1,
+		envMap:       map[string]string{consts.EnvTensorBoardLogDir: "/data/hpc/home/algo/outputs/demo-job/tensorboard"},
+		ownerUser:    "algo",
+		datacenter:   "cq-lj",
+		gpuType:      "NVIDIA-H200",
+	}, nil)
+	spec := job.Spec.Tasks[0].Template.Spec
+	if len(spec.InitContainers) != 1 || spec.InitContainers[0].Name != "prepare-dirs" {
+		t.Fatalf("init=%+v", spec.InitContainers)
+	}
+	for name := range spec.InitContainers[0].Resources.Limits {
+		if string(name) == consts.GPUResourceName {
+			t.Fatal("init container must not request GPU")
+		}
+	}
+	var (
+		hasHome  bool
+		hasShare bool
+	)
+	for _, vol := range spec.Volumes {
+		if vol.HostPath == nil {
+			continue
+		}
+		if vol.Name == "home" && vol.HostPath.Path == consts.HomeMountPath {
+			hasHome = true
+		}
+		if vol.Name == "share" && vol.HostPath.Path == consts.ShareMountPath {
+			hasShare = true
+		}
+	}
+	if !hasHome || !hasShare {
+		t.Fatalf("volumes=%+v", spec.Volumes)
+	}
+	main := spec.Containers[0]
+	var mountedHome bool
+	for _, m := range main.VolumeMounts {
+		if m.Name == "home" && m.MountPath == consts.HomeMountPath {
+			mountedHome = true
+		}
+	}
+	if !mountedHome {
+		t.Fatalf("mounts=%+v", main.VolumeMounts)
+	}
+}
+
 func TestInjectTensorBoardLogDir(t *testing.T) {
 	env := map[string]string{}
 	injectTensorBoardLogDir(env, "guoqiang", "job-a")

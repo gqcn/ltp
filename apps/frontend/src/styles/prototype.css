@@ -6877,9 +6877,14 @@ select.alert-page-size:focus {
   min-width: 0;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1360px) {
   .exp-layout {
     grid-template-columns: 1fr;
+  }
+
+  .exp-projects {
+    position: static;
+    max-height: none;
   }
 }
 
@@ -6936,7 +6941,7 @@ select.alert-page-size:focus {
   padding: 8px 8px 8px 10px;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, box-shadow 0.15s;
   border: 1px solid transparent;
   margin-bottom: 2px;
   min-width: 0;
@@ -6946,8 +6951,10 @@ select.alert-page-size:focus {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .exp-project-item:hover {
@@ -6956,17 +6963,19 @@ select.alert-page-size:focus {
 
 .exp-project-item.active {
   background: var(--primary-soft);
-  border-color: rgba(59, 130, 246, 0.25);
+  border-color: transparent;
+  box-shadow: inset 3px 0 0 var(--primary);
 }
 
 .exp-project-item .exp-proj-name {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 650;
   color: var(--text-0);
   overflow: visible;
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
+  line-height: 1.35;
 }
 
 .exp-project-item.active .exp-proj-name {
@@ -6974,11 +6983,25 @@ select.alert-page-size:focus {
 }
 
 .exp-project-item .exp-proj-meta {
-  font-size: 11.5px;
+  flex-shrink: 0;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--text-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  background: var(--bg-3);
+  line-height: 1;
+}
+
+.exp-project-item.active .exp-proj-meta {
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
 .exp-proj-pager {
@@ -7004,7 +7027,9 @@ select.alert-page-size:focus {
   justify-content: space-between;
   gap: 12px;
   min-width: 0;
-  margin-bottom: 12px;
+  margin: 0;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
 }
 
 .exp-selected-copy {
@@ -7181,6 +7206,9 @@ select.alert-page-size:focus {
   flex-wrap: wrap;
   gap: 10px;
   min-width: 0;
+  margin: 0;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
 }
 
 .exp-toolbar .search-box {
@@ -7198,6 +7226,7 @@ select.alert-page-size:focus {
 .exp-list-card {
   min-width: 0;
   max-width: 100%;
+  overflow: hidden;
 }
 
 /* 列表在列宽内自适应，横向滚动只发生在表格容器内 */
@@ -7209,7 +7238,16 @@ select.alert-page-size:focus {
 
 .exp-table {
   width: 100%;
+  min-width: 800px;
   table-layout: fixed;
+}
+
+.exp-table:has(.exp-empty) {
+  min-width: 0;
+}
+
+.exp-table-wrap:has(.exp-empty) {
+  overflow-x: hidden;
 }
 
 .exp-table th,
@@ -7219,7 +7257,7 @@ select.alert-page-size:focus {
 
 .exp-table th {
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
 .exp-table th.exp-col-check,
@@ -7228,13 +7266,13 @@ select.alert-page-size:focus {
   text-overflow: clip;
 }
 
-.exp-col-run { width: 24%; }
-.exp-col-status { width: 76px; }
+.exp-col-check { width: 36px; }
+.exp-col-run { width: 20%; }
+.exp-col-status { width: 72px; }
 .exp-col-loss { width: 72px; }
-.exp-col-step { width: 88px; }
-.exp-col-tps { width: 64px; }
-.exp-col-job { width: 14%; }
-.exp-col-owner { width: 120px; }
+.exp-col-step { width: 154px; }
+.exp-col-tps { width: 88px; }
+.exp-col-job { width: 12%; }
 .exp-col-time {
   width: 108px;
   white-space: nowrap;
@@ -7244,7 +7282,27 @@ select.alert-page-size:focus {
 .exp-col-time .td-created-time {
   color: var(--text-3);
 }
-.exp-col-actions { width: 72px; }
+.exp-col-actions {
+  width: 76px;
+  position: sticky;
+  right: 0;
+  background: var(--bg-1);
+  box-shadow: -12px 0 16px -10px color-mix(in srgb, var(--text-0) 16%, transparent);
+  z-index: 1;
+}
+
+.exp-table thead .exp-col-actions {
+  background: var(--bg-2);
+  z-index: 2;
+}
+
+.exp-table tbody tr:hover .exp-col-actions {
+  background: var(--bg-hover);
+}
+
+.exp-row-selected .exp-col-actions {
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg-1));
+}
 
 .exp-row-actions {
   display: flex;
@@ -7278,8 +7336,17 @@ select.alert-page-size:focus {
   padding: 48px 24px;
 }
 
+.exp-empty-mark {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 12px;
+  color: var(--accent-text);
+  opacity: 0.55;
+}
+
 .exp-empty p {
   margin: 0 0 8px;
+  color: var(--text-1);
 }
 
 .exp-empty-actions {
@@ -7349,13 +7416,13 @@ select.alert-page-size:focus {
 }
 
 .exp-run-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+  display: block;
   margin-top: 4px;
   font-size: 11.5px;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .exp-run-meta > .text-muted {
@@ -7375,11 +7442,70 @@ select.alert-page-size:focus {
 .exp-col-step {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap !important;
+  white-space: nowrap;
 }
 
 .exp-col-tps {
-  white-space: nowrap !important;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.exp-col-loss {
+  font-variant-numeric: tabular-nums;
+}
+
+.exp-progress {
+  position: relative;
+  min-width: 0;
+}
+
+.exp-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.exp-progress-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.exp-progress.is-compact .exp-progress-label {
+  font-size: 11px;
+  letter-spacing: -0.02em;
+}
+
+.exp-progress-track {
+  margin-top: 6px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  overflow: hidden;
+}
+
+.exp-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+}
+
+.exp-metric-unit {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
 }
 
 .exp-job-link {
@@ -7536,48 +7662,96 @@ select.alert-page-size:focus {
 }
 
 /* TensorBoard embed / primary path card */
-.exp-tb-embed {
-  display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(220px, 0.9fr);
-  gap: 16px;
-  margin: 16px 18px 0;
-  padding: 16px 18px;
-  border: 1px solid rgba(59, 130, 246, 0.28);
-  border-radius: var(--radius);
+.exp-tb-panel {
+  padding: 18px;
+}
+
+.exp-tb-panel-ready {
+  padding: 0;
+}
+
+.exp-tb-launch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 36px 28px;
+  border-radius: 12px;
+  border: 1px dashed color-mix(in srgb, var(--primary) 35%, var(--border));
   background:
-    linear-gradient(135deg, rgba(59, 130, 246, 0.08), transparent 55%),
+    linear-gradient(180deg, color-mix(in srgb, var(--primary) 9%, transparent), transparent 72%),
     var(--bg-2);
 }
 
-@media (max-width: 900px) {
-  .exp-tb-embed {
-    grid-template-columns: 1fr;
-  }
+.exp-tb-launch-mark {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  color: var(--accent-text);
+  opacity: 0.8;
 }
 
-.exp-tb-embed-main h4 {
-  margin: 6px 0 8px;
-  font-size: 14px;
-  font-weight: 600;
+.exp-tb-launch h4 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 650;
   color: var(--text-0);
 }
 
-.exp-tb-embed-main p {
-  margin: 0 0 12px;
+.exp-tb-launch p {
+  margin: 0 auto 16px;
+  max-width: 460px;
   font-size: 12.5px;
   line-height: 1.55;
 }
 
-.exp-tb-logdir {
-  font-size: 12px;
-  margin-bottom: 0;
+.exp-tb-embed {
+  min-width: 0;
+}
+
+.exp-tb-embed.is-ready {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 340px);
+}
+
+.exp-tb-chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.exp-tb-chrome-title {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--text-1);
+}
+
+.exp-tb-frame {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 520px;
+  border: 0;
+  background: #fff;
+  display: block;
 }
 
 .exp-tb-embed-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   margin-top: 12px;
+}
+
+.exp-tb-launch .exp-tb-embed-actions {
+  justify-content: center;
+  margin-top: 4px;
 }
 
 .exp-tb-badge {
@@ -7650,7 +7824,7 @@ select.alert-page-size:focus {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  padding: 18px;
+  padding: 0;
 }
 
 @media (max-width: 900px) {
@@ -7676,10 +7850,90 @@ select.alert-page-size:focus {
 
 /* Compare */
 .exp-compare-runs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
   margin-bottom: 16px;
+}
+
+.exp-compare-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-1);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.exp-compare-card:hover {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  background: color-mix(in srgb, var(--primary) 6%, var(--bg-1));
+}
+
+.exp-compare-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.exp-compare-card-head strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+}
+
+.exp-compare-card-meta {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exp-compare-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.exp-compare-kpi {
+  min-width: 0;
+}
+
+.exp-compare-kpi span {
+  display: block;
+  font-size: 11px;
+  color: var(--text-3);
+  margin-bottom: 4px;
+}
+
+.exp-compare-kpi > .mono,
+.exp-compare-kpi .exp-progress-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-0);
+}
+
+.exp-compare-note {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--warning-fg);
+  background: var(--warning-soft);
+  border: 1px solid color-mix(in srgb, var(--warning) 28%, transparent);
 }
 
 .exp-compare-chip {
@@ -7713,9 +7967,73 @@ select.alert-page-size:focus {
 }
 
 .exp-diff-table td.diff-diff {
-  color: var(--warning);
+  color: var(--warning-fg);
   font-weight: 500;
   background: var(--warning-soft);
+}
+
+.exp-diff-table tr.is-diff td:first-child {
+  color: var(--text-0);
+  font-weight: 600;
+}
+
+.exp-hero-project {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+#page-exp-detail .exp-hero-meta {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+#page-exp-detail .exp-hero-meta .meta-item {
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+}
+
+#page-exp-detail .exp-hero-meta .meta-item .label {
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+
+#page-exp-detail .exp-hero-meta .meta-item .value {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+#page-exp-detail .exp-hero-meta .meta-item .value.mono {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-0);
+}
+
+#page-exp-detail .exp-hero-meta .exp-progress-label {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-0);
+}
+
+.exp-table th.exp-col-tps {
+  white-space: nowrap;
+}
+
+.th-unit {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  font-family: var(--mono);
+}
+
+@media (max-width: 1100px) {
+  #page-exp-detail .exp-hero-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .exp-diff-table th.run-col {

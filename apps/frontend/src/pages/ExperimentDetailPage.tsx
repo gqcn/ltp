@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
-import { deleteExperimentRun, getExperimentRun, listExperimentProjects, openExperimentBoard, updateExperimentRun } from "@/api/training";
+import { deleteExperimentRun, getExperimentRun, listExperimentProjects, openExperimentBoard, updateExperimentRun, type EnvEntry } from "@/api/training";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/Button";
 import { CodeViewer } from "@/components/CodeEditor";
 import { ListLoading } from "@/components/ListLoading";
 import { Modal } from "@/components/Modal";
+import { ExperimentProgress, formatLoss, formatTokensPerSec } from "@/lib/experiment";
 import { formatTime } from "@/lib/format";
 import { JobStatusBadge } from "@/lib/job";
 import { toast } from "@/lib/toast";
@@ -18,8 +19,19 @@ const tabs = [
   { id: "overview", label: "概览与路径" },
 ] as const;
 
-function dash(v: number | null | undefined) {
-  return v == null ? "—" : String(v);
+function TabIcon({ id }: { id: string }) {
+  if (id === "charts") {
+    return <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19V5M4 19h16" /><path d="M8 16l3-5 3 3 5-8" /></svg>;
+  }
+  if (id === "config") {
+    return <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M8 13h8M8 17h6M8 9h2" /></svg>;
+  }
+  return <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 20h16" /><path d="M8 16V8M12 16V4M16 16v-6" /></svg>;
+}
+
+function formatEnv(env: EnvEntry[] | undefined) {
+  if (!env?.length) return "# 无额外环境变量";
+  return env.map((item) => `${item.key}=${item.value}`).join("\n");
 }
 
 export function ExperimentDetailPage() {
@@ -61,6 +73,7 @@ export function ExperimentDetailPage() {
     onError: (error: unknown) => toast.error(error instanceof ApiError ? error.message : "删除失败"),
   });
   const run = query.data;
+  const boardReady = Boolean(board.data?.ready);
 
   if (query.isLoading) {
     return <div className="card" style={{ margin: 24 }}><ListLoading label="正在加载实验…" /></div>;
@@ -73,83 +86,136 @@ export function ExperimentDetailPage() {
     <section className="page active" id="page-exp-detail">
       <div className="detail-hero">
         <div className="detail-hero-top">
-          <div>
-            <h2>{run.name} {run.jobStatus ? <JobStatusBadge status={run.jobStatus} /> : null}</h2>
-            <div className="mono text-muted mt-8" style={{ fontSize: 12 }}>{run.projectName}</div>
+          <div className="job-detail-heading">
+            <h2>
+              <span className="job-detail-title">{run.name}</span>
+              {run.jobStatus ? <JobStatusBadge status={run.jobStatus} /> : null}
+            </h2>
+            <div className="exp-hero-project">{run.projectName}</div>
           </div>
           <div className="page-actions">
-            {run.jobId ? <Button variant="ghost" size="sm" onClick={() => navigate(`/training/jobs/${run.jobId}`)}>查看任务</Button> : null}
-            <Button variant="secondary" size="sm" onClick={() => { setMoveProjectId(String(run.projectId)); setMoveOpen(true); }}>移动到项目</Button>
+            {run.jobId ? <Button variant="secondary" size="sm" onClick={() => navigate(`/training/jobs/${run.jobId}`)}>查看任务</Button> : null}
+            <Button variant="ghost" size="sm" onClick={() => { setMoveProjectId(String(run.projectId)); setMoveOpen(true); }}>移动到项目</Button>
             <Button variant="ghost" size="sm" onClick={() => setDeleteOpen(true)}>删除实验</Button>
-            <Button size="sm" onClick={() => board.mutate()}>打开 TensorBoard</Button>
+            <Button size="sm" onClick={() => board.mutate()} disabled={board.isPending}>打开 TensorBoard</Button>
           </div>
         </div>
-        <div className="detail-meta">
-          <div className="meta-item"><div className="label">创建人</div><div className="value">{run.ownerNickname}</div></div>
-          <div className="meta-item"><div className="label">Loss</div><div className="value mono">{dash(run.loss)}</div></div>
-          <div className="meta-item"><div className="label">Step</div><div className="value mono">{run.step == null ? "—" : run.maxSteps ? `${run.step.toLocaleString()} / ${run.maxSteps.toLocaleString()}` : run.step.toLocaleString()}</div></div>
-          <div className="meta-item"><div className="label">吞吐</div><div className="value mono">{dash(run.tokensPerSec)}</div></div>
-          <div className="meta-item"><div className="label">更新时间</div><div className="value mono">{formatTime(run.updatedAt)}</div></div>
+        <div className="detail-meta exp-hero-meta">
+          <div className="meta-item">
+            <div className="label">创建人</div>
+            <div className="value">{run.ownerNickname}</div>
+          </div>
+          <div className="meta-item">
+            <div className="label">Loss</div>
+            <div className="value mono" title={run.loss == null ? undefined : String(run.loss)}>{formatLoss(run.loss)}</div>
+          </div>
+          <div className="meta-item">
+            <div className="label">Step</div>
+            <div className="value mono">
+              <ExperimentProgress step={run.step} maxSteps={run.maxSteps} />
+            </div>
+          </div>
+          <div className="meta-item">
+            <div className="label">吞吐</div>
+            <div className="value mono">
+              {formatTokensPerSec(run.tokensPerSec)}
+              {run.tokensPerSec != null ? <span className="exp-metric-unit">tok/s</span> : null}
+            </div>
+          </div>
+          <div className="meta-item">
+            <div className="label">更新时间</div>
+            <div className="value mono">{formatTime(run.updatedAt)}</div>
+          </div>
         </div>
       </div>
       <div className="card">
         <div className="tabs">
           {tabs.map((item) => (
-            <div key={item.id} className={`tab ${tab === item.id ? "active" : ""}`} onClick={() => setTab(item.id)}>{item.label}</div>
+            <div key={item.id} className={`tab ${tab === item.id ? "active" : ""}`} onClick={() => setTab(item.id)}>
+              <TabIcon id={item.id} />
+              {item.label}
+            </div>
           ))}
         </div>
         {tab === "charts" ? (
-          <div className="tab-panel active">
-            <div className="exp-tb-embed">
-              <div className="exp-tb-embed-main">
-                <div className="exp-tb-badge">主路径</div>
-                <h4>TensorBoard 看板</h4>
-                <p className="text-muted">完整曲线由任务所在机房的 TensorBoard 提供。平台按需拉起进程并反代，不把 tfevents 导入数据库。</p>
-                {board.data?.ready ? (
-                  <iframe title="TensorBoard" src={board.data.proxyPath} style={{ width: "100%", minHeight: 480, border: 0, background: "var(--bg-1)" }} />
-                ) : (
-                  <div className="exp-tb-embed-actions">
-                    <Button size="sm" onClick={() => board.mutate()} disabled={board.isPending}>打开 / 嵌入 TensorBoard</Button>
-                    {board.data?.proxyPath ? <Button variant="secondary" size="sm" onClick={() => window.open(board.data?.proxyPath, "_blank")}>新标签打开</Button> : null}
-                    {board.data?.message ? <span className="text-muted">{board.data.message}</span> : null}
-                  </div>
-                )}
+          <div className={`tab-panel active ${boardReady ? "exp-tb-panel-ready" : "exp-tb-panel"}`}>
+            {boardReady ? (
+              <div className="exp-tb-embed is-ready">
+                <div className="exp-tb-chrome">
+                  <span className="exp-tb-chrome-title">TensorBoard</span>
+                  <Button variant="ghost" size="sm" onClick={() => window.open(board.data?.proxyPath, "_blank")}>新标签打开</Button>
+                </div>
+                <iframe title="TensorBoard" src={board.data?.proxyPath} className="exp-tb-frame" />
               </div>
-            </div>
+            ) : (
+              <div className="exp-tb-launch">
+                <svg className="exp-tb-launch-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+                  <rect x="6" y="8" width="36" height="32" rx="6" stroke="currentColor" strokeWidth="1.75" />
+                  <path d="M12 32l7.5-9 6 5 10-14" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                  <circle cx="35.5" cy="14" r="1.6" fill="currentColor" />
+                </svg>
+                <h4>TensorBoard 看板</h4>
+                <p className="text-muted">在任务所在机房按需打开 TensorBoard，查看完整训练曲线。</p>
+                <div className="exp-tb-embed-actions">
+                  <Button size="sm" onClick={() => board.mutate()} disabled={board.isPending}>打开 / 嵌入 TensorBoard</Button>
+                  {board.data?.proxyPath ? <Button variant="secondary" size="sm" onClick={() => window.open(board.data?.proxyPath, "_blank")}>新标签打开</Button> : null}
+                  {board.data?.message ? <span className="text-muted">{board.data.message}</span> : null}
+                </div>
+              </div>
+            )}
             {run.metricsError ? <div className="exp-panel-note text-muted">{run.metricsError}</div> : null}
           </div>
         ) : null}
         {tab === "config" ? (
-          <div className="tab-panel active exp-config-grid">
-            <div className="exp-config-card">
-              <h4>任务配置</h4>
-              <div className="card-body">
-                <div className="kv-list">
-                  <div className="kv-row"><span className="k">镜像</span><span className="v mono">{run.image || "—"}</span></div>
-                  <div className="kv-row"><span className="k">节点</span><span className="v">{run.nodes || "—"}</span></div>
-                  <div className="kv-row"><span className="k">每节点 GPU</span><span className="v">{run.gpusPerNode || "—"}</span></div>
-                  <div className="kv-row"><span className="k">工作路径</span><span className="v mono">{run.workdir || "—"}</span></div>
+          <div className="tab-panel active job-cfg">
+            <div className="job-cfg-grid">
+              <section className="job-cfg-panel">
+                <div className="job-cfg-panel-head">任务配置</div>
+                <div className="job-cfg-facts">
+                  <div className="job-cfg-fact is-span"><span className="k">镜像</span><span className="v mono">{run.image || "—"}</span></div>
+                  <div className="job-cfg-fact"><span className="k">节点</span><span className="v">{run.nodes || "—"}</span></div>
+                  <div className="job-cfg-fact"><span className="k">每节点 GPU</span><span className="v">{run.gpusPerNode || "—"}</span></div>
+                  <div className="job-cfg-fact is-span"><span className="k">工作路径</span><span className="v mono">{run.workdir || "—"}</span></div>
                 </div>
-              </div>
-            </div>
-            <div className="exp-config-card">
-              <h4>启动命令</h4>
-              <div className="card-body">
+              </section>
+              <section className="job-cfg-panel">
+                <div className="job-cfg-panel-head">启动命令</div>
                 <CodeViewer language="shell" value={run.command || "# 无"} lineNumbers={false} wrap />
-              </div>
+                <div className="job-cfg-panel-head job-cfg-subhead">环境变量</div>
+                <CodeViewer language="env" value={formatEnv(run.env)} lineNumbers={false} wrap />
+              </section>
             </div>
           </div>
         ) : null}
         {tab === "overview" ? (
-          <div className="tab-panel active exp-config-grid">
-            <div className="exp-config-card">
-              <h4>TensorBoard logdir</h4>
-              <div className="card-body">
-                <CodeViewer language="shell" value={run.tbLogdir || "—"} lineNumbers={false} wrap />
-                <div className="flex gap-8" style={{ marginTop: 12 }}>
-                  <Button variant="secondary" size="sm" onClick={() => navigator.clipboard?.writeText(run.tbLogdir).then(() => toast.success("已复制 logdir"))}>复制 logdir</Button>
+          <div className="tab-panel active job-cfg">
+            <div className="job-cfg-grid">
+              <section className="job-cfg-panel">
+                <div className="job-cfg-panel-head">实验信息</div>
+                <div className="job-cfg-facts">
+                  <div className="job-cfg-fact"><span className="k">项目</span><span className="v">{run.projectName || "—"}</span></div>
+                  <div className="job-cfg-fact"><span className="k">团队</span><span className="v">{run.teamName || "—"}</span></div>
+                  <div className="job-cfg-fact is-span">
+                    <span className="k">关联任务</span>
+                    <span className="v">
+                      {run.jobId ? (
+                        <button type="button" className="link-cell" onClick={() => navigate(`/training/jobs/${run.jobId}`)}>{run.jobName || run.jobId}</button>
+                      ) : "—"}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </section>
+              <section className="job-cfg-panel">
+                <div className="job-cfg-panel-head">TensorBoard logdir</div>
+                <div className="job-cfg-path">
+                  <code className="v">{run.tbLogdir || "—"}</code>
+                </div>
+                {run.tbLogdir ? (
+                  <div className="exp-tb-embed-actions">
+                    <Button variant="secondary" size="sm" onClick={() => navigator.clipboard?.writeText(run.tbLogdir).then(() => toast.success("已复制 logdir"))}>复制 logdir</Button>
+                  </div>
+                ) : null}
+              </section>
             </div>
           </div>
         ) : null}

@@ -10,6 +10,11 @@ nodes:
       nvidia.com/gpu.present: "true"
       nvidia.com/gpu.count: "8"
       nvidia.com/gpu.product: NVIDIA-H200
+    extraMounts:
+      - hostPath: /tmp/ltp-kind/hpc-home
+        containerPath: /data/hpc/home
+      - hostPath: /tmp/ltp-kind/share
+        containerPath: /share
     kubeadmConfigPatches:
       - |
         kind: JoinConfiguration
@@ -22,6 +27,11 @@ nodes:
       nvidia.com/gpu.present: "true"
       nvidia.com/gpu.count: "8"
       nvidia.com/gpu.product: NVIDIA-H800
+    extraMounts:
+      - hostPath: /tmp/ltp-kind/hpc-home
+        containerPath: /data/hpc/home
+      - hostPath: /tmp/ltp-kind/share
+        containerPath: /share
     kubeadmConfigPatches:
       - |
         kind: JoinConfiguration
@@ -34,6 +44,11 @@ nodes:
       nvidia.com/gpu.present: "true"
       nvidia.com/gpu.count: "8"
       nvidia.com/gpu.product: NVIDIA-GeForce-RTX-4090
+    extraMounts:
+      - hostPath: /tmp/ltp-kind/hpc-home
+        containerPath: /data/hpc/home
+      - hostPath: /tmp/ltp-kind/share
+        containerPath: /share
     kubeadmConfigPatches:
       - |
         kind: JoinConfiguration

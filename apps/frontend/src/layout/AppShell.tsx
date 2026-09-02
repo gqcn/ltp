@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { logout, type SessionUser } from "@/api/auth";
 import { getAlertSummary } from "@/api/alert";
 import type { Cluster } from "@/api/cluster";
-import { getJob } from "@/api/training";
+import { getExperimentRun, getJob } from "@/api/training";
 import { Modal } from "@/components/Modal";
 import { Select } from "@/components/Select";
 import { canVisit, MENU_OPS, MENU_PLATFORM, MENU_TRAINING } from "@/lib/access";
@@ -87,6 +87,13 @@ export function AppShell({ user }: Props) {
     queryFn: () => getJob(jobDetailId),
     enabled: jobDetailId > 0,
   });
+  const expDetailMatch = location.pathname.match(/^\/training\/experiments\/(\d+)$/);
+  const expDetailId = expDetailMatch ? Number(expDetailMatch[1]) : 0;
+  const expDetailQuery = useQuery({
+    queryKey: ["exp-run", expDetailId],
+    queryFn: () => getExperimentRun(expDetailId),
+    enabled: expDetailId > 0,
+  });
   const crumb =
     location.pathname === "/training/jobs/new" && rerunId > 0
       ? { current: "重跑任务", parent: { label: "任务列表", to: "/training/jobs" } }
@@ -97,8 +104,8 @@ export function AppShell({ user }: Props) {
             ? { current: "发布新版本", parent: { label: "配置管理", to: "/training/configs" } }
             : /^\/training\/configs\/\d+$/.test(location.pathname)
               ? { current: "配置集", parent: { label: "配置管理", to: "/training/configs" } }
-              : /^\/training\/experiments\/\d+$/.test(location.pathname)
-                ? { current: "实验详情", parent: { label: "实验分析", to: "/training/experiments" } }
+              : expDetailId > 0
+                ? { current: expDetailQuery.data?.name || "实验详情", parent: { label: "实验分析", to: "/training/experiments" } }
                 : { current: "控制台" });
   const fillViewport = location.pathname === "/platform/system";
   const clusterSource = location.pathname.startsWith("/training") ? "training" : "ops";

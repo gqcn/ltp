@@ -12,7 +12,7 @@ type OpenExperimentBoardReq struct {
 
 // OpenExperimentBoardRes 是看板入口。
 type OpenExperimentBoardRes struct {
-	ProxyPath string `json:"proxyPath" dc:"同源反代前缀，前端 iframe 或新标签打开" eg:"/api/training/experiments/1/board/"`
+	ProxyPath string `json:"proxyPath" dc:"同源反代前缀，前端 iframe 或新标签打开。始终为当前服务地址。" eg:"/api/training/experiments/1/board/"`
 	Ready     bool   `json:"ready" dc:"serve Pod 是否已就绪" eg:"true"`
 	Message   string `json:"message" dc:"未就绪或失败时的中文说明。成功可为空。" eg:""`
 }

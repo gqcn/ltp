@@ -9,6 +9,11 @@
 - **WHEN** 算法工程师成功提交名称为`slm-7b-pretrain-phase4`、运行用户为`guoqiang`的任务
 - **THEN** 该任务环境变量含`TENSORBOARD_LOGDIR=/data/hpc/home/guoqiang/outputs/slm-7b-pretrain-phase4/tensorboard`，且存在关联`Run`
 
+#### Scenario: 训练容器写入的 tfevents 对读盘 Job 可见
+
+- **WHEN** 平台创建`Volcano Job`
+- **THEN** 训练容器挂载节点`/data/hpc/home`与`/share`，并在启动前创建工作目录与`TENSORBOARD_LOGDIR`
+
 #### Scenario: 用户已填写同名环境变量时不覆盖
 
 - **WHEN** 提交时用户环境变量已包含`TENSORBOARD_LOGDIR=/custom/tb`

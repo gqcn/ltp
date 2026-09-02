@@ -47,7 +47,7 @@
 
 `/data/hpc/home/<owner_username>/outputs/<任务名>/tensorboard`
 
-平台向训练容器注入`TENSORBOARD_LOGDIR`。用户环境变量已有同名键时不覆盖。配置挂载仍走`/data/hpc/home/<user>/experiments/<任务名>/configs`，与跟踪目录分成两棵树。
+平台向训练容器注入`TENSORBOARD_LOGDIR`。用户环境变量已有同名键时不覆盖。配置挂载仍走`/data/hpc/home/<user>/experiments/<任务名>/configs`，与跟踪目录分成两棵树。训练`Volcano Job`与实验代理一样挂载节点`/data/hpc/home`、`/share`（`hostPath` `DirectoryOrCreate`），否则容器内写出的`tfevents`对读盘`Job`不可见。启动前用无`GPU`的`init`容器创建工作目录与`logdir`。
 
 `trainjob.Create`在业务行与`Volcano Job`成功后调用`exprun.EnsureForJob`。`exprun`通过构造函数注入`trainjob`，`trainjob`只依赖`exprun`上的窄接口（例如`EnsureForJob`），避免循环实现依赖：由`cmd`装配时注入。`EnsureForJob`失败只记日志并写`Run`错误，不回滚已提交的训练任务。
 
@@ -60,9 +60,10 @@
 | 命令 | 形态 | 作用 |
 | --- | --- | --- |
 | `metrics` | `batch/v1 Job`，`restartPolicy=Never` | 读`$TENSORBOARD_LOGDIR`，向标准输出打印一行`JSON`后退出 |
-| `serve` | 长`Pod` + `ClusterIP Service` | 启动`tensorboard --bind_all --port 6006`，带与反代一致的`path_prefix` |
+| `serve` | 长`Pod` + `ClusterIP Service` | `TensorBoard`绑`127.0.0.1`；容器 6006 提供标准`HTTP`入口，供平台服务经`API Server`反代 |
+| `demo` | 作为训练容器启动命令 | 向`TENSORBOARD_LOGDIR`写入含`lm loss`、`tokens_per_sec`、`max_steps`的`tfevents`，供本地验收外层列与看板 |
 
-二者共用`logdir`、机房`nodeSelector`（`maip.io/datacenter`）、`/data/hpc/home`与`/share`挂载（`kind`无盘时允许挂载失败或使用`emptyDir`，读盘失败视为未上报）。不申请`nvidia.com/gpu`，不进`Volcano Queue`。对象落在命名空间`maip`，用标签识别：
+二者共用`logdir`、机房`nodeSelector`（`maip.io/datacenter`，若关联任务有卡型号则加上`maip.io/gpu-type`）、`/data/hpc/home`与`/share`挂载。本地`kind`用工作节点`extraMounts`把宿主机目录挂到该路径，模拟机房网络盘。不申请`nvidia.com/gpu`，不进`Volcano Queue`。对象落在命名空间`maip`，用标签识别：
 
 - `maip.io/agent=experiment`
 - `maip.io/role=metrics`或`serve`
@@ -73,7 +74,7 @@
 `metrics`标准输出信封（标量，不是文件）：
 
 ```json
-{"ok":true,"step":21000,"loss":1.822,"tokensPerSec":null,"tags":["lm loss"]}
+{"ok":true,"step":21000,"loss":1.822,"tokensPerSec":null,"maxSteps":50000,"tags":["lm loss"]}
 ```
 
 解析只用`tensorboard`的`EventAccumulator`，只取 scalar 每个 tag 的最后一点。默认别名：
@@ -83,6 +84,7 @@
 | `loss` | `lm loss`、`lm-loss`、`loss`、`train_loss`、`Loss` |
 | 吞吐 | `tokens_per_sec`、`tokens/sec`、`throughput` |
 | `step` | 命中`loss`那条标量的最大`event.step`；否则任意 scalar 的最大`step` |
+| `max_steps` | `max_steps`、`num_train_steps`、`train/total_steps` |
 
 对不上的字段输出`null`，页面显示`—`。根目录无 scalar 时再尝试子目录`train`。正在写入导致最后一条 record 损坏时跳过坏尾。不把`throughput`（可能是`TFLOP/s`）在无`tokens*` tag 时标成`tok/s`；命中`throughput`时仍写入`last_tokens_per_sec`但详情用中性文案「吞吐」，避免谎称单位。
 
@@ -121,9 +123,9 @@ flowchart TD
 
 `POST /api/training/experiments/{id}/board`（动作，允许副作用）：校验可见性，写入`board_accessed_at`，对账`serve`直至`Ready`或超时（约 45 秒），返回同源反代前缀。
 
-`GET /api/training/experiments/{id}/board/*`：会话鉴权后，用集群客户端把请求转到该`Pod`的 6006（`Pod`代理或等价 SPDY）。控制面只需能访问各集群`API Server`，不必直连`Pod IP`。
+`GET /api/training/experiments/{id}/board/*`：会话鉴权后，经集群`API Server`的`Pod`反代访问看板容器 6006。浏览器只访问当前平台服务地址，不使用`kubectl port-forward`，也不把机房 6006 暴露到公网。
 
-`serve`启动参数带与此前缀一致的`--path_prefix`。前端详情默认页签「`TensorBoard` / 曲线」用`iframe`加载该前缀；若静态资源因前缀失败，同一页签提供「新标签打开」并记录为已知限制，不因此阻塞外层快照。
+`serve`在容器内把`TensorBoard`绑在`127.0.0.1`，对外 6006 是一层标准`HTTP`反代，以便`kube-apiserver`的`Pod proxy`能正确转发。前端详情默认页签「`TensorBoard` / 曲线」用`iframe`加载`/api/training/experiments/{id}/board/`；若静态资源失败，同一页签提供「新标签打开」同一服务地址。
 
 跨机房对比：对比页展示各`Run`外层快照与超参 Diff（超参取关联任务的配置快照：镜像、环境变量、节点/卡数；本迭代不做完整`YAML`超参树）。仅当所选`Run`的`cluster_id`与`datacenter_code`全部相同，才提供「打开`TensorBoard`对比」（同一`serve`使用`--logdir_spec`或父目录）。否则说明完整曲线不能跨机房叠加。
 
@@ -145,9 +147,9 @@ flowchart TD
 
 ## Risks / Trade-offs
 
-- [各机房节点未挂`/data/hpc/home`] → 读盘`Job`失败，外层`—`，看板为空；详情展示`metrics_error`中文说明，不把训练任务标失败。
+- [各机房节点未挂`/data/hpc/home`] → 读盘`Job`失败，外层`—`，看板为空；详情展示`metrics_error`中文说明，不把训练任务标失败。本地`kind`用工作节点`extraMounts`共享宿主机目录，训练`Job`与代理都挂该路径；读盘/`serve`还带训练任务的卡型号选择器，避免落到另一类`GPU`节点。
 - [训练未写`tfevents`或 tag 对不上] → 按别名表空字段，不猜测。后续只加别名。
-- [`TensorBoard --path_prefix`导致`iframe`静态资源 404] → 页签保留新标签打开同源反代；外层快照不受影响。
+- [`iframe`静态资源失败] → 页签保留新标签打开同一平台服务地址；外层快照不受影响。
 - [对账创建过多短`Job`] → 仅对运行中或刚结束且快照过期的`Run`创建；成功即删；失败指数退避。
 - [控制面到`API Server`代理大流量看板] → 只服务已授权的单个`Run`；不把 6006 打到公网；可接受相对直连`Pod`的额外一跳。
 - [EnsureForJob 失败] → 训练已提交成功，后台对账或用户打开实验页可补建`Run`（按`job_id`幂等）。
